@@ -5,6 +5,11 @@ from fastapi import HTTPException
 
 from admin.machine_assets.machine_setup.performance.repositories.performance_repository import KPIPerformanceRepository
 
+from admin.machine_assets.machine_setup.performance.schemas.performance_schemas import PerformanceItem
+
+
+from admin.db_timescale import save_performance
+
 
 class KPIPerformanceService:
     RUNNING_IDS = {14}
@@ -118,6 +123,17 @@ class KPIPerformanceService:
                 "micro_stop_hours": round(micro_stop_s / 3600.0, 2),
                 "performance_pct": round(performance_pct, 2),
             })
+        
+    
+        for row in results:
+            item = PerformanceItem(
+                production_day=row["production_day"],
+                station_id=row["station_id"],
+                run_time_hours=row["run_time_hours"],
+                micro_stop_hours=row["micro_stop_hours"],
+                performance_pct=row["performance_pct"],
+            )
+            save_performance(item)
 
         return {
             "title": "Performance KPI",

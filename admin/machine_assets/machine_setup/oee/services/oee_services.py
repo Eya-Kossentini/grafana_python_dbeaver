@@ -5,6 +5,9 @@ from admin.machine_assets.machine_setup.availability.services.availability_servi
 from admin.machine_assets.machine_setup.performance.services.performance_services import KPIPerformanceService
 from admin.machine_assets.machine_setup.quality.services.quality_services import KPIQualityService
 
+from admin.machine_assets.machine_setup.oee.schemas.oee_schemas import OeeResult
+
+from admin.db_timescale import save_oee
 
 class KPIOeeService:
     def __init__(
@@ -131,6 +134,18 @@ class KPIOeeService:
                 "quality_missing": not quality_exists,
                 "oee_pct": oee_pct,
             })
+        
+        for row in results:
+            item = OeeResult(
+                production_day=row["production_day"],
+                station_id=row["station_id"],
+                availability_pct=row["availability_pct"],
+                performance_pct=row["performance_pct"], 
+                quality_pct=row["quality_pct"],
+                quality_missing=row["quality_missing"],
+                oee_pct=row["oee_pct"]
+            )
+            save_oee(item)
 
         return {
             "title": "OEE KPI",

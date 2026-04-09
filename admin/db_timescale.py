@@ -53,7 +53,6 @@ def save_availability(item):
         item.availability_pct,
     ))
 
-
     row_id = cur.fetchone()[0]
     conn.commit()
     cur.close()
@@ -61,6 +60,81 @@ def save_availability(item):
     return row_id
     
 
-#while True:
- #   insert_kpi()
-  #  time.sleep(10)
+
+def save_performance(item):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO public.performance_results (
+            production_day,
+            station_id,
+            run_time_hours,
+            micro_stop_hours,
+            performance_pct
+        )
+        VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT (production_day, station_id)
+        DO UPDATE SET
+            run_time_hours = EXCLUDED.run_time_hours,
+            micro_stop_hours = EXCLUDED.micro_stop_hours,
+            performance_pct = EXCLUDED.performance_pct,
+            created_at = NOW()
+        RETURNING id;
+    """, (
+        item.production_day,
+        item.station_id,
+        item.run_time_hours,
+        item.micro_stop_hours,
+        item.performance_pct,
+    ))
+
+    row_id = cur.fetchone()[0]
+    conn.commit()
+    cur.close()
+    conn.close()
+    return row_id
+    
+    
+
+def save_oee(item):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO public.oee_results (
+            production_day,
+            station_id,
+            availability_pct,
+            performance_pct,
+            quality_pct,
+            quality_missing,
+            oee_pct
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (production_day, station_id)
+        DO UPDATE SET
+            availability_pct = EXCLUDED.availability_pct,
+            performance_pct = EXCLUDED.performance_pct,
+            quality_pct = EXCLUDED.quality_pct,
+            quality_missing = EXCLUDED.quality_missing,
+            oee_pct = EXCLUDED.oee_pct,
+            created_at = NOW()
+        RETURNING id;
+    """, (
+        item.production_day,
+        item.station_id,
+        item.availability_pct,
+        item.performance_pct,
+        item.quality_pct,
+        item.quality_missing,
+        item.oee_pct
+    ))
+
+    row_id = cur.fetchone()[0]
+    conn.commit()
+    cur.close()
+    conn.close()
+    return row_id
+    
+    
