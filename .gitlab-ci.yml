@@ -1,0 +1,58 @@
+stages:
+  - deploy
+
+variables:
+  DEPLOY_HOST: "192.168.1.140"
+  DEPLOY_USER: "adminit"
+  DEPLOY_PATH: "/home/adminit/core"
+  DEPLOY_PORT: "22"
+
+Deploy to core:
+  stage: deploy
+  rules:
+    - if: "$CI_COMMIT_BRANCH == 'main'"
+  before_script:
+    - 'command -v ssh >/dev/null || (apt-get update -y && apt-get install -y openssh-client)'
+    - |
+      if [ -z "${SSH_PRIVATE_KEY:-}" ] && [ -z "${SSH_PASSWORD:-}" ]; then
+        echo "No SSH credentials found. Set SSH_PRIVATE_KEY or SSH_PASSWORD in CI/CD variables." >&2
+        exit 1
+      fi
+    - |
+      if [ -n "${SSH_PRIVATE_KEY:-}" ]; then
+        eval "$(ssh-agent -s)"
+        echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+      else
+        command -v sshpass >/dev/null || (apt-get update -y && apt-get install -y sshpass)
+        export SSHPASS="$SSH_PASSWORD"
+      fi
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+  script:
+    - |
+      # Create deploy directory and upload files (including dotfiles) using tar over SSH
+      SSH_OPTS="-p $DEPLOY_PORT -o StrictHostKeyChecking=no"
+      WORKDIR="${CI_PROJECT_DIR:-.}"
+      if [ -n "${SSH_PRIVATE_KEY:-}" ]; then
+        ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p $DEPLOY_PATH"
+        tar --exclude 'venv' --exclude '.git' --exclude '__pycache__' --exclude '.pytest_cache' --exclude 'logs' -C "$WORKDIR" -czf - . | ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" "tar -xzf - -C $DEPLOY_PATH"
+      else
+        # Force password/keyboard-interactive auth, disable pubkey
+        SSH_OPTS="$SSH_OPTS -o PreferredAuthentications=password,keyboard-interactive -o PubkeyAuthentication=no"
+        sshpass -e ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p $DEPLOY_PATH"
+        tar --exclude 'venv' --exclude '.git' --exclude '__pycache__' --exclude '.pytest_cache' --exclude 'logs' -C "$WORKDIR" -czf - . | sshpass -e ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" "tar -xzf - -C $DEPLOY_PATH"
+      fi
+    - |
+      # Determine docker compose command on the remote host and restart services
+      REMOTE_CMD='SUDO=""; if docker info >/dev/null 2>&1; then :; elif sudo -n docker info >/dev/null 2>&1; then SUDO="sudo "; else echo "docker not accessible for user and sudo requires password" >&2; exit 1; fi; if docker compose version >/dev/null 2>&1; then DC="docker compose"; elif docker-compose version >/dev/null 2>&1; then DC="docker-compose"; else echo "docker compose not found" >&2; exit 1; fi; cd '"$DEPLOY_PATH"' && ${SUDO}${DC} down || true; cd '"$DEPLOY_PATH"' && ${SUDO}${DC} up -d --build'
+      SSH_OPTS="-p $DEPLOY_PORT -o StrictHostKeyChecking=no"
+      if [ -n "${SSH_PRIVATE_KEY:-}" ]; then
+        ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" "$REMOTE_CMD"
+      else
+        SSH_OPTS="$SSH_OPTS -o PreferredAuthentications=password,keyboard-interactive -o PubkeyAuthentication=no"
+        sshpass -e ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" "$REMOTE_CMD"
+      fi
+  environment:
+    name: core
+    url: "http://192.168.1.140:8011"

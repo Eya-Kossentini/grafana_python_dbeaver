@@ -1,0 +1,16 @@
+.git
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+venv/
+.env
+.env.*
+logs/
+*.log
+*.coverage
+.coverage*
+pytest.ini
+.pytest_cache/
+.idea/
+.vscode/ 

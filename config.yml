@@ -1,0 +1,6 @@
+db:
+  url: "postgresql://postgres:admin123@127.0.0.1:5433/postgres"
+  #url: "postgresql://postgres:2025@192.168.1.4:5432/Core_Demo"
+  #url: "postgresql://postgres:Ayoub2025@127.0.0.1:5432/Core_Demo"
+
+

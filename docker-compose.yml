@@ -1,0 +1,43 @@
+services:
+  my_postgres_v3:
+    image: timescale/timescaledb:latest-pg16
+    container_name: my_postgres_v3
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin123
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  core:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    image: core:latest
+    container_name: core-1
+    ports:
+      - "8011:8011"
+    volumes:
+      - "./:/app"
+    environment:
+      DB_HOST: my_postgres_v3
+      DB_PORT: 5432
+      DB_NAME: postgres
+      DB_USER: postgres
+      DB_PASSWORD: admin123
+    depends_on:
+      - my_postgres_v3
+    restart: always
+
+  my_grafana_3:
+    image: grafana/grafana:latest
+    container_name: my_grafana_3
+    ports:
+      - "3000:3000"
+    depends_on:
+      - my_postgres_v3
+
+volumes:
+  postgres_data:
