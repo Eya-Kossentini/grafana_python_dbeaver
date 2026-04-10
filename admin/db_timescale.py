@@ -8,7 +8,7 @@ DB_NAME = "postgres"
 DB_USER = "postgres"
 DB_PASSWORD = "admin123"
 
-
+     
 def get_connection():
     return psycopg2.connect(
         host=DB_HOST,
@@ -24,7 +24,7 @@ def save_availability(item):
     cur = conn.cursor()
 
     cur.execute("""
-        INSERT INTO public.availability_results (
+        INSERT INTO availability_kpi(
             production_day,
             station_id,
             run_time_hours,
@@ -66,7 +66,7 @@ def save_performance(item):
     cur = conn.cursor()
 
     cur.execute("""
-        INSERT INTO public.performance_results (
+        INSERT INTO performance_kpi (
             production_day,
             station_id,
             run_time_hours,
@@ -102,7 +102,7 @@ def save_oee(item):
     cur = conn.cursor()
 
     cur.execute("""
-        INSERT INTO public.oee_results (
+        INSERT INTO oee_kpi(
             production_day,
             station_id,
             availability_pct,
@@ -138,3 +138,208 @@ def save_oee(item):
     return row_id
     
     
+def save_quality(item):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO quality_kpi(
+            production_day,
+            station_id,
+            total_bookings,
+            good_count,
+            fail_count,
+            scrap_count,
+            quality_pct,
+            defect_rate_pct
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (production_day, station_id)
+        DO UPDATE SET
+            total_bookings = EXCLUDED.total_bookings,
+            good_count = EXCLUDED.good_count,
+            fail_count = EXCLUDED.fail_count,
+            scrap_count = EXCLUDED.scrap_count,
+            quality_pct = EXCLUDED.quality_pct,
+            defect_rate_pct = EXCLUDED.defect_rate_pct,
+            created_at = NOW()
+        RETURNING id;
+    """, (
+        item.production_day,
+        item.station_id,
+        item.total_bookings,
+        item.good_count,
+        item.fail_count,
+        item.scrap_count,
+        item.quality_pct,
+        item.defect_rate_pct
+    ))
+
+    row_id = cur.fetchone()[0]
+    conn.commit()
+    cur.close()
+    conn.close()
+    return row_id
+    
+    
+def save_pareto(item):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO pareto_losses_kpi(
+                station_id,
+                production_day,
+                loss_type,
+                loss_hours,
+                loss_pct,
+                cumulative_pct,
+                pareto_rank,
+                is_critical
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (station_id, production_day, loss_type)
+        DO UPDATE SET
+            loss_hours = EXCLUDED.loss_hours,
+            loss_pct = EXCLUDED.loss_pct,
+            cumulative_pct = EXCLUDED.cumulative_pct,
+            pareto_rank = EXCLUDED.pareto_rank,
+            is_critical = EXCLUDED.is_critical,
+            created_at = NOW()
+        RETURNING station_id;
+    """, (
+        item.station_id,
+        item.production_day,
+        item.loss_type,
+        item.loss_hours,
+        item.loss_pct,
+        item.cumulative_pct,
+        item.pareto_rank,
+        item.is_critical
+    ))
+
+    row_id = cur.fetchone()[0]
+    conn.commit()
+    cur.close()
+    conn.close()
+    return row_id
+    
+    
+    
+
+def save_reliability(item):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO reliability_diagnostic_kpi(
+            station_id,
+            mtbf_hours,
+            top_loss_type,
+            top_loss_pct,
+            pareto_rank,
+            criticality_level,
+            diagnosis
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (station_id)
+        DO UPDATE SET
+            mtbf_hours = EXCLUDED.mtbf_hours,
+            top_loss_type = EXCLUDED.top_loss_type,
+            top_loss_pct = EXCLUDED.top_loss_pct,
+            pareto_rank = EXCLUDED.pareto_rank,
+            criticality_level = EXCLUDED.criticality_level,
+            diagnosis = EXCLUDED.diagnosis
+        RETURNING station_id;
+    """, (
+        item.station_id,
+        item.mtbf_hours,
+        item.top_loss_type,
+        item.top_loss_pct,
+        item.pareto_rank,
+        item.criticality_level,
+        item.diagnosis
+    ))
+
+    row = cur.fetchone()
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return row[0] if row else None
+
+
+
+
+def save_scrap(item):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO scrap_by_day_kpi(
+            production_day,
+            station_id,
+            total_bookings,
+            scrap_count,
+            scrap_rate_pct
+        )
+        VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT (production_day, station_id)
+        DO UPDATE SET
+            total_bookings = EXCLUDED.total_bookings,
+            scrap_count = EXCLUDED.scrap_count,
+            scrap_rate_pct = EXCLUDED.scrap_rate_pct,
+            created_at = NOW()
+        RETURNING id;
+    """, (
+        item.production_day,
+        item.station_id,
+        item.total_bookings,
+        item.scrap_count,
+        item.scrap_rate_pct
+    ))
+
+    row = cur.fetchone()
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return row[0] if row else None
+
+
+def save_downtime(item):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO downtime_by_station_kpi(
+            station_id,
+            production_day,
+            downtime_type,
+            downtime_hours,
+            downtime_minutes,
+            downtime_events
+        )
+        VALUES (%s, %s, %s, %s, %s, %s)
+        ON CONFLICT (station_id, production_day, downtime_type)
+        DO UPDATE SET
+            downtime_hours = EXCLUDED.downtime_hours,
+            downtime_minutes = EXCLUDED.downtime_minutes,
+            downtime_events = EXCLUDED.downtime_events,
+            created_at = NOW()
+        RETURNING station_id;
+    """, (
+        item.station_id,
+        item.production_day,
+        item.downtime_type,
+        item.downtime_hours,
+        item.downtime_minutes,
+        item.downtime_events
+    ))
+
+    row = cur.fetchone()
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return row[0] if row else None

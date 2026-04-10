@@ -6,6 +6,12 @@ from admin.machine_assets.machine_setup.scrap_by_day.repositories.scrap_by_day_r
 )
 
 
+
+from admin.machine_assets.machine_setup.scrap_by_day.schemas.scrap_by_day_schemas import ScrapByDayResult
+
+from admin.db_timescale import save_scrap
+
+
 class KPIScrapByDayService:
     def __init__(self, scrap_by_day_repository: KPIScrapByDayRepository) -> None:
         self.scrap_by_day_repository = scrap_by_day_repository
@@ -72,6 +78,16 @@ class KPIScrapByDayService:
             })
 
         results.sort(key=lambda x: (x["production_day"], x["station_id"]))
+        
+        for row in results:
+            item = ScrapByDayResult(
+                production_day=row["production_day"],
+                station_id=row["station_id"],
+                total_bookings=row["total_bookings"],
+                scrap_count=row["scrap_count"],
+                scrap_rate_pct=row["scrap_rate_pct"]
+            )
+            save_scrap(item)
 
         return {
             "title": "Scrap By Day KPI",

@@ -3,6 +3,9 @@ from typing import Optional
 from admin.machine_assets.machine_setup.mtbf.services.mtbf_services import KPIMTBFService
 from admin.machine_assets.machine_setup.pareto_losses.services.pareto_losses_services import KPIParetoLossesService
 
+from admin.machine_assets.machine_setup.reliability_diagnostic.schemas.reliability_diagnostic_schemas import ReliabilityDiagnosticResult
+
+from admin.db_timescale import save_reliability
 
 class KPIReliabilityDiagnosticService:
     def __init__(
@@ -76,6 +79,19 @@ class KPIReliabilityDiagnosticService:
                 "criticality_level": criticality_level,
                 "diagnosis": diagnosis,
             })
+        
+        for row in results:
+            item = ReliabilityDiagnosticResult(
+                station_id=row["station_id"],
+                mtbf_hours=row["mtbf_hours"],
+                top_loss_type=row["top_loss_type"],
+                top_loss_pct=row["top_loss_pct"],
+                pareto_rank=row["pareto_rank"],
+                criticality_level=row["criticality_level"],
+                diagnosis=row["diagnosis"]
+            )
+            save_reliability(item)
+
 
         return {
             "title": "Reliability Diagnostic KPI",

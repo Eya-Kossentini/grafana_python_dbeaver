@@ -4,7 +4,9 @@ from typing import Optional
 from fastapi import HTTPException
 
 from admin.machine_assets.machine_setup.quality.repositories.quality_repository import KPIQualityRepository
+from admin.machine_assets.machine_setup.quality.schemas.quality_schemas import QualityItem
 
+from admin.db_timescale import save_quality
 
 class KPIQualityService:
     def __init__(self, kpi_quality_repository: KPIQualityRepository) -> None:
@@ -108,6 +110,19 @@ class KPIQualityService:
                 "quality_pct": quality_pct,
                 "defect_rate_pct": defect_rate_pct,
             })
+        
+        for row in results:
+            item = QualityItem(
+                production_day=row["production_day"],
+                station_id=row["station_id"],
+                total_bookings=row["total_bookings"],
+                good_count=row["good_count"],
+                fail_count=row["fail_count"],
+                scrap_count=row["scrap_count"],
+                quality_pct=row["quality_pct"],
+                defect_rate_pct=row["defect_rate_pct"]
+            )
+            save_quality(item)
 
         return {
             "title": "Quality KPI",

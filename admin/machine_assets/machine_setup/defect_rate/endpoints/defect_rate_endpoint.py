@@ -13,7 +13,7 @@ router = APIRouter(
 
 @router.get("/defect_rate", response_model=DefectRateResponse)
 def get_defect_rate_kpi(
-    station_id: int = Path(description= "Station ID"),
+    station_id: int = Query(default=None, description="Station ID"),
     token: str = Security(oauth2_scheme)
 ):
     try:

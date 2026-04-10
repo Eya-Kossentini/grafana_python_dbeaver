@@ -5,6 +5,9 @@ from admin.machine_assets.machine_setup.pareto_losses.repositories.pareto_losses
     KPIParetoLossesRepository,
 )
 
+from admin.machine_assets.machine_setup.pareto_losses.schemas.pareto_losses_schemas import ParetoLossesResult
+
+from admin.db_timescale import save_pareto
 
 class KPIParetoLossesService:
     def __init__(
@@ -133,6 +136,18 @@ class KPIParetoLossesService:
         results.sort(
             key=lambda x: (x["production_day"], x["station_id"], x["pareto_rank"])
         )
+        for row in results:
+            item = ParetoLossesResult(
+                station_id=row["station_id"],
+                production_day=row["production_day"],
+                loss_type=row["loss_type"],
+                loss_hours=row["loss_hours"],
+                loss_pct=row["loss_pct"],
+                cumulative_pct=row["cumulative_pct"],
+                pareto_rank=row["pareto_rank"],
+                is_critical=row["is_critical"],
+            )
+            save_pareto(item)
 
         return {
             "title": "Pareto Losses KPI",

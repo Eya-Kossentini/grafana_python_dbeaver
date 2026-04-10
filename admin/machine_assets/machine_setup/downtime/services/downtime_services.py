@@ -6,6 +6,9 @@ from admin.machine_assets.machine_setup.downtime.repositories.downtime_repositor
     KPIDowntimeRepository,
 )
 
+from admin.machine_assets.machine_setup.downtime.schemas.downtime_schemas import DowntimeByStationResult
+
+from admin.db_timescale import save_downtime
 
 class KPIDowntimeService:
     def __init__(self, downtime_repository: KPIDowntimeRepository) -> None:
@@ -142,6 +145,17 @@ class KPIDowntimeService:
                 -x["downtime_hours"],
             )
         )
+        
+        for row in results:
+            item = DowntimeByStationResult(
+                station_id=row["station_id"],
+                production_day=row["production_day"],
+                downtime_type=row["downtime_type"],
+                downtime_hours=row["downtime_hours"],
+                downtime_minutes=row["downtime_minutes"],
+                downtime_events=row["downtime_events"]
+            )
+            save_downtime(item)
 
         return {
             "title": "Downtime By Station KPI",

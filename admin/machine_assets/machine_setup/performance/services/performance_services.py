@@ -7,7 +7,6 @@ from admin.machine_assets.machine_setup.performance.repositories.performance_rep
 
 from admin.machine_assets.machine_setup.performance.schemas.performance_schemas import PerformanceItem
 
-
 from admin.db_timescale import save_performance
 
 
