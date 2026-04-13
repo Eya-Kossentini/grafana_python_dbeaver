@@ -14,6 +14,10 @@ from admin.machine_assets.machine_setup.oee.services.oee_services import KPIOeeS
 from admin.machine_assets.machine_setup.mtbf.services.mtbf_services import KPIMTBFService
 from admin.machine_assets.machine_setup.mttr.services.mttr_services import KPIMTTRService
 
+from admin.machine_assets.machine_setup.dashboard_overview.schemas.dashboard_overview_schemas import DashboardOverviewItem
+
+from admin.db_timescale import save_dashboard
+
 
 class KPIDashboardOverviewService:
     def __init__(
@@ -191,6 +195,20 @@ class KPIDashboardOverviewService:
                 "mtbf_hours": mtbf_item.get("mtbf_hours"),
                 "mttr_hours": mttr_item.get("mttr_hours"),
             })
+        
+            
+        for row in results:
+            item = DashboardOverviewItem(
+                station_id=row["station_id"],
+                production_day=row["production_day"],
+                oee_pct=row["oee_pct"],
+                availability_pct=row["availability_pct"],
+            performance_pct=row["performance_pct"],
+            quality_pct=row["quality_pct"],
+            mtbf_hours=row["mtbf_hours"],
+            mttr_hours=row["mttr_hours"],
+            )
+            save_dashboard(item)
 
         return {
             "title": "Dashboard Overview KPI",

@@ -3,6 +3,10 @@ from typing import Optional
 
 from admin.machine_assets.machine_setup.mtbf.repositories.mtbf_repository import KPIMTBFRepository
 
+from admin.machine_assets.machine_setup.mtbf.schemas.mtbf_schemas import MTBFResult
+
+
+from admin.db_timescale import save_mtbf
 
 class KPIMTBFService:
     def __init__(self, mtbf_repository: KPIMTBFRepository) -> None:
@@ -76,6 +80,15 @@ class KPIMTBFService:
                 "failure_count": failure_count,
                 "mtbf_hours": mtbf_hours,
             })
+            
+        for row in results:
+            item = MTBFResult(
+                station_id=row["station_id"],
+                run_time_hours=row["run_time_hours"],
+                failure_count=row["failure_count"],
+                mtbf_hours=row["mtbf_hours"]
+            )
+            save_mtbf(item)
 
         return {
             "title": "MTBF KPI",

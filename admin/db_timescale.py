@@ -343,3 +343,211 @@ def save_downtime(item):
     conn.close()
 
     return row[0] if row else None
+
+
+
+
+def save_dashboard(item):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO dashboard_overview(
+            station_id,
+            production_day,
+            oee_pct,
+            availability_pct,
+            performance_pct,
+            quality_pct,
+            mtbf_hours,
+            mttr_hours
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (station_id, production_day)
+        DO UPDATE SET
+            oee_pct = EXCLUDED.oee_pct,
+            availability_pct = EXCLUDED.availability_pct,
+            performance_pct = EXCLUDED.performance_pct,
+            quality_pct = EXCLUDED.quality_pct,
+            mtbf_hours = EXCLUDED.mtbf_hours,
+            mttr_hours = EXCLUDED.mttr_hours,  
+            created_at = NOW()
+        RETURNING station_id;
+    """, (
+        item.station_id,
+        item.production_day,
+        item.oee_pct,
+        item.availability_pct,
+        item.performance_pct,
+        item.quality_pct,
+        item.mtbf_hours,
+        item.mttr_hours
+    ))
+
+    row = cur.fetchone()
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return row[0] if row else None
+
+
+
+
+def save_failure_loss(item):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO failure_loss_diagnostic_kpi(
+            station_id,
+            top_failure_group,
+            top_failure_count,
+            top_failure_pct,
+            top_loss_type,
+            top_loss_hours,
+            top_loss_pct,
+            criticality_level,
+            diagnosis
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (station_id, top_failure_pct)
+        DO UPDATE SET
+            top_failure_group = EXCLUDED.top_failure_group,
+            top_failure_count = EXCLUDED.top_failure_count,
+            top_loss_type = EXCLUDED.top_loss_type,
+            top_loss_hours = EXCLUDED.top_loss_hours,
+            top_loss_pct = EXCLUDED.top_loss_pct,
+            criticality_level = EXCLUDED.criticality_level,  
+            diagnosis = EXCLUDED.diagnosis,
+            created_at = NOW()
+        RETURNING station_id;
+    """, (
+        item.station_id,
+        item.top_failure_group,
+        item.top_failure_count,
+        item.top_failure_pct,
+        item.top_loss_type,
+        item.top_loss_hours,
+        item.top_loss_pct,
+        item.criticality_level,
+        item.diagnosis
+    ))
+
+    row = cur.fetchone()
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return row[0] if row else None
+
+
+
+
+def save_mttr(item):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO mttr_kpi(
+            station_id,
+            repair_time_hours,
+            failure_count,
+            mttr_hours
+        )
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (station_id, repair_time_hours)
+        DO UPDATE SET
+            failure_count = EXCLUDED.failure_count,
+            mttr_hours = EXCLUDED.mttr_hours,
+            created_at = NOW()
+        RETURNING station_id;
+    """, (
+        item.station_id,
+        item.repair_time_hours,
+        item.failure_count,
+        item.mttr_hours
+    ))
+
+    row = cur.fetchone()
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return row[0] if row else None
+
+
+
+def save_mtbf(item):
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    cur.execute("""
+        INSERT INTO mtbf_kpi(
+            station_id,
+            run_time_hours,
+            failure_count,
+            mtbf_hours
+        )
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (station_id, run_time_hours)
+        DO UPDATE SET
+            failure_count = EXCLUDED.failure_count,
+            mtbf_hours = EXCLUDED.mtbf_hours,
+            created_at = NOW()
+        RETURNING station_id;
+    """, (
+        item.station_id,
+        item.run_time_hours,
+        item.failure_count,
+        item.mtbf_hours
+    ))
+
+    row = cur.fetchone()
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return row[0] if row else None
+  
+    
+def save_defect(item):
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    cur.execute("""
+        INSERT INTO defect_rate_kpi(
+            station_id,
+            total_bookings,
+            good_count,
+            fail_count,
+            scrap_count,
+            defect_count,
+            defect_rate_pct
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (station_id, total_bookings)
+        DO UPDATE SET
+            good_count = EXCLUDED.good_count,
+            fail_count = EXCLUDED.fail_count,
+            scrap_count = EXCLUDED.scrap_count,
+            defect_count = EXCLUDED.defect_count,
+            defect_rate_pct = EXCLUDED.defect_rate_pct,
+            created_at = NOW()
+        RETURNING station_id;
+    """, (
+        item.station_id,
+        item.total_bookings,
+        item.good_count,
+        item.fail_count,
+        item.scrap_count,
+        item.defect_count,
+        item.defect_rate_pct
+    ))
+
+    row = cur.fetchone()
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return row[0] if row else None

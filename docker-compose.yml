@@ -22,11 +22,12 @@ services:
     volumes:
       - "./:/app"
     environment:
-      DB_HOST: my_postgres_v3
-      DB_PORT: 5432
-      DB_NAME: postgres
-      DB_USER: postgres
-      DB_PASSWORD: admin123
+      DATABASE_URL: postgresql://postgres:admin123@host.docker.internal:5435/postgres
+    #  DB_HOST: my_postgres_v3
+    #  DB_PORT: 5432
+    #  DB_NAME: postgres
+    #  DB_USER: postgres
+    #  DB_PASSWORD: admin123
     depends_on:
       - my_postgres_v3
     restart: always

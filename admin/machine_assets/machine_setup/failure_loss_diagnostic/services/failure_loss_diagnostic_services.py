@@ -8,6 +8,9 @@ from admin.machine_assets.machine_setup.pareto_losses.services.pareto_losses_ser
     KPIParetoLossesService,
 )
 
+from admin.machine_assets.machine_setup.failure_loss_diagnostic.schemas.failure_loss_diagnostic_schemas import FailureLossDiagnosticResult
+
+from admin.db_timescale import save_failure_loss
 
 class KPIFailureLossDiagnosticService:
     def __init__(
@@ -113,6 +116,20 @@ class KPIFailureLossDiagnosticService:
                 "criticality_level": criticality_level,
                 "diagnosis": diagnosis,
             })
+            
+        for row in results:
+            item = FailureLossDiagnosticResult(
+                station_id=row["station_id"],
+                top_failure_group=row["top_failure_group"],
+                top_failure_count=row["top_failure_count"],
+                top_loss_type=row["top_loss_type"],
+                top_loss_hours=row["top_loss_hours"],
+                top_loss_pct=row["top_loss_pct"],
+                criticality_level=row["criticality_level"],
+                diagnosis=row["diagnosis"]
+            )
+            save_failure_loss(item)
+
 
         return {
             "title": "Failure Loss Diagnostic KPI",

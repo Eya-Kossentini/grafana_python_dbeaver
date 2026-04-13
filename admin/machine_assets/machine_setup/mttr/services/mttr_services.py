@@ -3,6 +3,9 @@ from typing import Optional
 
 from admin.machine_assets.machine_setup.mttr.repositories.mttr_repository import KPIMTTRRepository
 
+from admin.machine_assets.machine_setup.mttr.schemas.mttr_schemas import MTTRResult
+
+from admin.db_timescale import save_mttr
 
 class KPIMTTRService:
     def __init__(self, mttr_repository: KPIMTTRRepository) -> None:
@@ -73,6 +76,15 @@ class KPIMTTRService:
                 "failure_count": failure_count,
                 "mttr_hours": mttr_hours,
             })
+        
+        for row in results:
+            item = MTTRResult(
+                station_id=row["station_id"],
+                repair_time_hours=row["repair_time_hours"],
+                failure_count=row["failure_count"],
+                mttr_hours=row["mttr_hours"]
+            )
+            save_mttr(item)
 
         return {
             "title": "MTTR KPI",

@@ -8,6 +8,9 @@ from admin.machine_assets.machine_setup.defect_rate.schemas.defect_rate_schemas 
 )
 
 
+from admin.db_timescale import save_defect
+
+
 class KPIDefectRateService:
     def __init__(self, kpi_defect_rate_repository: KPIDefectRateRepository) -> None:
         self.kpi_defect_rate_repository = kpi_defect_rate_repository
@@ -77,7 +80,10 @@ class KPIDefectRateService:
                 results.append(DefectRateItem(**item))
 
             results.sort(key=lambda x: x.station_id)
-
+            
+            for item in results:
+                save_defect(item)
+            
             return DefectRateResponse(
                 title="Defect Rate KPI by Station",
                 kpi="defect_rate",
