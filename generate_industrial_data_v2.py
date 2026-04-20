@@ -219,117 +219,125 @@ LINES_FIXED: list[dict[str, Any]] = [
     {"id": 36, "name": "TL-L04"},
 ]
 
+
+#raisonnement
+
+# station fixed = "nom machine group" :"nom"
+# mapping machine_group_name_to_id = "SPI-GROUP": 3
+#post api "machine_group_id": machine_group_name_to_id[station["machine_group"]] 
+
+
 STATIONS_FIXED: list[dict[str, Any]] = [
-    {"id": 4,   "machine_group_id": 4,  "name": "FRA-PP-L01-01",  "description": "Pick & Place 1"},
-    {"id": 5,   "machine_group_id": 4,  "name": "FRA-PP-L01-02",  "description": "Pick & Place 2"},
-    {"id": 6,   "machine_group_id": 4,  "name": "FRA-PP-L01-03",  "description": "Pick & Place 3"},
-    {"id": 7,   "machine_group_id": 5,  "name": "FRA-OVE-L01-01", "description": "Reflow Oven"},
-    {"id": 8,   "machine_group_id": 6,  "name": "FRA-AOI-L01-01", "description": "AOI"},
-    {"id": 12,  "machine_group_id": 5,  "name": "FRA-OVE-L01-02", "description": ""},
-    {"id": 1,   "machine_group_id": 1,  "name": "FRA-LAB-L01-01", "description": "Labeling"},
-    {"id": 2,   "machine_group_id": 1,  "name": "ST-02",           "description": "Auto seeded for FK integrity"},
-    {"id": 3,   "machine_group_id": 1,  "name": "ST-03",           "description": "Auto seeded for FK integrity"},
-    {"id": 9,   "machine_group_id": 1,  "name": "ST-09",           "description": "Auto seeded for FK integrity"},
-    {"id": 10,  "machine_group_id": 1,  "name": "ST-10",           "description": "Auto seeded for FK integrity"},
-    {"id": 27,  "machine_group_id": 6,  "name": "FRA-AOI-L02-01", "description": None},
-    {"id": 28,  "machine_group_id": 6,  "name": "FRA-AOI-L03-01", "description": None},
-    {"id": 29,  "machine_group_id": 6,  "name": "FRA-AOI-L04-01", "description": None},
-    {"id": 30,  "machine_group_id": 6,  "name": "FRA-AOI-L05-01", "description": None},
-    {"id": 31,  "machine_group_id": 6,  "name": "FRA-AOI-L06-01", "description": None},
-    {"id": 63,  "machine_group_id": 5,  "name": "FRA-OVE-L02-01", "description": None},
-    {"id": 64,  "machine_group_id": 5,  "name": "FRA-OVE-L03-01", "description": None},
-    {"id": 65,  "machine_group_id": 5,  "name": "FRA-OVE-L04-01", "description": None},
-    {"id": 66,  "machine_group_id": 5,  "name": "FRA-OVE-L05-01", "description": None},
-    {"id": 67,  "machine_group_id": 5,  "name": "FRA-OVE-L06-01", "description": None},
-    {"id": 75,  "machine_group_id": 4,  "name": "FRA-PP-L02-01",  "description": None},
-    {"id": 76,  "machine_group_id": 4,  "name": "FRA-PP-L02-02",  "description": None},
-    {"id": 77,  "machine_group_id": 4,  "name": "FRA-PP-L03-01",  "description": None},
-    {"id": 78,  "machine_group_id": 4,  "name": "FRA-PP-L03-02",  "description": None},
-    {"id": 79,  "machine_group_id": 4,  "name": "FRA-PP-L04-01",  "description": None},
-    {"id": 80,  "machine_group_id": 4,  "name": "FRA-PP-L04-02",  "description": None},
-    {"id": 81,  "machine_group_id": 4,  "name": "FRA-PP-L05-01",  "description": None},
-    {"id": 82,  "machine_group_id": 4,  "name": "FRA-PP-L05-02",  "description": None},
-    {"id": 83,  "machine_group_id": 4,  "name": "FRA-PP-L06-01",  "description": None},
-    {"id": 84,  "machine_group_id": 4,  "name": "FRA-PP-L06-02",  "description": None},
-    {"id": 24,  "machine_group_id": 10, "name": "THT-AIM-L04-01", "description": None},
-    {"id": 25,  "machine_group_id": 10, "name": "THT-AIM-L05-01", "description": None},
-    {"id": 35,  "machine_group_id": 6,  "name": "THT-AOI-L04-01", "description": None},
-    {"id": 36,  "machine_group_id": 6,  "name": "THT-AOI-L05-01", "description": None},
-    {"id": 48,  "machine_group_id": 21, "name": "THT-CC-L04-01",  "description": None},
-    {"id": 49,  "machine_group_id": 21, "name": "THT-CC-L05-01",  "description": None},
-    {"id": 71,  "machine_group_id": 11, "name": "THT-PO-L04-01",  "description": None},
-    {"id": 72,  "machine_group_id": 11, "name": "THT-PO-L05-01",  "description": None},
-    {"id": 100, "machine_group_id": 12, "name": "THT-WSM-L04-01", "description": None},
-    {"id": 101, "machine_group_id": 12, "name": "THT-WSM-L05-01", "description": None},
-    {"id": 21,  "machine_group_id": 10, "name": "THT-AIM-L01-01", "description": None},
-    {"id": 22,  "machine_group_id": 10, "name": "THT-AIM-L02-01", "description": None},
-    {"id": 23,  "machine_group_id": 10, "name": "THT-AIM-L03-01", "description": None},
-    {"id": 32,  "machine_group_id": 6,  "name": "THT-AOI-L01-01", "description": None},
-    {"id": 33,  "machine_group_id": 6,  "name": "THT-AOI-L02-01", "description": None},
-    {"id": 34,  "machine_group_id": 6,  "name": "THT-AOI-L03-01", "description": None},
-    {"id": 45,  "machine_group_id": 21, "name": "THT-CC-L01-01",  "description": None},
-    {"id": 46,  "machine_group_id": 21, "name": "THT-CC-L02-01",  "description": None},
-    {"id": 47,  "machine_group_id": 21, "name": "THT-CC-L03-01",  "description": None},
-    {"id": 68,  "machine_group_id": 11, "name": "THT-PO-L01-01",  "description": None},
-    {"id": 69,  "machine_group_id": 11, "name": "THT-PO-L02-01",  "description": None},
-    {"id": 70,  "machine_group_id": 11, "name": "THT-PO-L03-01",  "description": None},
-    {"id": 37,  "machine_group_id": 6,  "name": "TL-AOI-L01-01",  "description": None},
-    {"id": 38,  "machine_group_id": 6,  "name": "TL-AOI-L02-01",  "description": None},
-    {"id": 39,  "machine_group_id": 6,  "name": "TL-AOI-L03-01",  "description": None},
-    {"id": 40,  "machine_group_id": 6,  "name": "TL-AOI-L04-01",  "description": None},
-    {"id": 41,  "machine_group_id": 17, "name": "TL-BCT-L01-01",  "description": None},
-    {"id": 42,  "machine_group_id": 17, "name": "TL-BCT-L02-01",  "description": None},
-    {"id": 43,  "machine_group_id": 17, "name": "TL-BCT-L03-01",  "description": None},
-    {"id": 44,  "machine_group_id": 17, "name": "TL-BCT-L04-01",  "description": None},
-    {"id": 50,  "machine_group_id": 14, "name": "TL-FPT-L01-01",  "description": None},
-    {"id": 51,  "machine_group_id": 14, "name": "TL-FPT-L02-01",  "description": None},
-    {"id": 52,  "machine_group_id": 14, "name": "TL-FPT-L03-01",  "description": None},
-    {"id": 53,  "machine_group_id": 14, "name": "TL-FPT-L04-01",  "description": None},
-    {"id": 54,  "machine_group_id": 15, "name": "TL-FTS-L01-01",  "description": None},
-    {"id": 55,  "machine_group_id": 15, "name": "TL-FTS-L02-01",  "description": None},
-    {"id": 56,  "machine_group_id": 15, "name": "TL-FTS-L03-01",  "description": None},
-    {"id": 57,  "machine_group_id": 15, "name": "TL-FTS-L04-01",  "description": None},
-    {"id": 58,  "machine_group_id": 13, "name": "TL-ICT-L01-01",  "description": None},
-    {"id": 59,  "machine_group_id": 13, "name": "TL-ICT-L02-01",  "description": None},
-    {"id": 60,  "machine_group_id": 13, "name": "TL-ICT-L03-01",  "description": None},
-    {"id": 61,  "machine_group_id": 13, "name": "TL-ICT-L04-01",  "description": None},
-    {"id": 85,  "machine_group_id": 3,  "name": "FRA-SPI-L01-01", "description": None},
-    {"id": 86,  "machine_group_id": 3,  "name": "FRA-SPI-L02-01", "description": None},
-    {"id": 87,  "machine_group_id": 3,  "name": "FRA-SPI-L03-01", "description": None},
-    {"id": 88,  "machine_group_id": 3,  "name": "FRA-SPI-L04-01", "description": None},
-    {"id": 89,  "machine_group_id": 3,  "name": "FRA-SPI-L05-01", "description": None},
-    {"id": 90,  "machine_group_id": 3,  "name": "FRA-SPI-L06-01", "description": None},
-    {"id": 91,  "machine_group_id": 2,  "name": "FRA-SPP-L01-01", "description": None},
-    {"id": 92,  "machine_group_id": 2,  "name": "FRA-SPP-L02-01", "description": None},
-    {"id": 93,  "machine_group_id": 2,  "name": "FRA-SPP-L03-01", "description": None},
-    {"id": 94,  "machine_group_id": 2,  "name": "FRA-SPP-L04-01", "description": None},
-    {"id": 95,  "machine_group_id": 2,  "name": "FRA-SPP-L05-01", "description": None},
-    {"id": 96,  "machine_group_id": 2,  "name": "FRA-SPP-L06-01", "description": None},
-    {"id": 97,  "machine_group_id": 12, "name": "THT-WSM-L01-01", "description": None},
-    {"id": 98,  "machine_group_id": 12, "name": "THT-WSM-L02-01", "description": None},
-    {"id": 99,  "machine_group_id": 12, "name": "THT-WSM-L03-01", "description": None},
-    {"id": 102, "machine_group_id": 16, "name": "ASS-ASM-L01-01", "description": None},
+    {"legacy_id": 4,   "machine_group": "PNP-GROUP", "name": "FRA-PP-L01-01",  "description": "Pick & Place 1"},
+    {"legacy_id": 5,   "machine_group": "PNP-GROUP", "name": "FRA-PP-L01-02",  "description": "Pick & Place 2"},
+    {"legacy_id": 6,   "machine_group": "PNP-GROUP", "name": "FRA-PP-L01-03",  "description": "Pick & Place 3"},
+    {"legacy_id": 7,   "machine_group": "OVE-GROUP", "name": "FRA-OVE-L01-01", "description": "Reflow Oven"},
+    {"legacy_id": 8,   "machine_group": "AOI-GROUP", "name": "FRA-AOI-L01-01", "description": "AOI"},
+    {"legacy_id": 12,  "machine_group": "OVE-GROUP", "name": "FRA-OVE-L01-02", "description": ""},
+    {"legacy_id": 21,  "machine_group": "AIM-GROUP", "name": "THT-AIM-L01-01", "description": None},
+    {"legacy_id": 22,  "machine_group": "AIM-GROUP", "name": "THT-AIM-L02-01", "description": None},
+    {"legacy_id": 23,  "machine_group": "AIM-GROUP", "name": "THT-AIM-L03-01", "description": None},
+    {"legacy_id": 24,  "machine_group": "AIM-GROUP", "name": "THT-AIM-L04-01", "description": None},
+    {"legacy_id": 25,  "machine_group": "AIM-GROUP", "name": "THT-AIM-L05-01", "description": None},
+    {"legacy_id": 27,  "machine_group": "AOI-GROUP", "name": "FRA-AOI-L02-01", "description": None},
+    {"legacy_id": 28,  "machine_group": "AOI-GROUP", "name": "FRA-AOI-L03-01", "description": None},
+    {"legacy_id": 29,  "machine_group": "AOI-GROUP", "name": "FRA-AOI-L04-01", "description": None},
+    {"legacy_id": 30,  "machine_group": "AOI-GROUP", "name": "FRA-AOI-L05-01", "description": None},
+    {"legacy_id": 31,  "machine_group": "AOI-GROUP", "name": "FRA-AOI-L06-01", "description": None},
+    {"legacy_id": 32,  "machine_group": "AOI-GROUP", "name": "THT-AOI-L01-01", "description": None},
+    {"legacy_id": 33,  "machine_group": "AOI-GROUP", "name": "THT-AOI-L02-01", "description": None},
+    {"legacy_id": 34,  "machine_group": "AOI-GROUP", "name": "THT-AOI-L03-01", "description": None},
+    {"legacy_id": 35,  "machine_group": "AOI-GROUP", "name": "THT-AOI-L04-01", "description": None},
+    {"legacy_id": 36,  "machine_group": "AOI-GROUP", "name": "THT-AOI-L05-01", "description": None},
+    {"legacy_id": 37,  "machine_group": "AOI-GROUP", "name": "TL-AOI-L01-01",  "description": None},
+    {"legacy_id": 38,  "machine_group": "AOI-GROUP", "name": "TL-AOI-L02-01",  "description": None},
+    {"legacy_id": 39,  "machine_group": "AOI-GROUP", "name": "TL-AOI-L03-01",  "description": None},
+    {"legacy_id": 40,  "machine_group": "AOI-GROUP", "name": "TL-AOI-L04-01",  "description": None},
+    {"legacy_id": 41,  "machine_group": "BCT-GROUP", "name": "TL-BCT-L01-01",  "description": None},
+    {"legacy_id": 42,  "machine_group": "BCT-GROUP", "name": "TL-BCT-L02-01",  "description": None},
+    {"legacy_id": 43,  "machine_group": "BCT-GROUP", "name": "TL-BCT-L03-01",  "description": None},
+    {"legacy_id": 44,  "machine_group": "BCT-GROUP", "name": "TL-BCT-L04-01",  "description": None},
+    {"legacy_id": 45,  "machine_group": "CC-GROUP",  "name": "THT-CC-L01-01",  "description": None},
+    {"legacy_id": 46,  "machine_group": "CC-GROUP",  "name": "THT-CC-L02-01",  "description": None},
+    {"legacy_id": 47,  "machine_group": "CC-GROUP",  "name": "THT-CC-L03-01",  "description": None},
+    {"legacy_id": 48,  "machine_group": "CC-GROUP",  "name": "THT-CC-L04-01",  "description": None},
+    {"legacy_id": 49,  "machine_group": "CC-GROUP",  "name": "THT-CC-L05-01",  "description": None},
+    {"legacy_id": 50,  "machine_group": "FPT-GROUP", "name": "TL-FPT-L01-01",  "description": None},
+    {"legacy_id": 51,  "machine_group": "FPT-GROUP", "name": "TL-FPT-L02-01",  "description": None},
+    {"legacy_id": 52,  "machine_group": "FPT-GROUP", "name": "TL-FPT-L03-01",  "description": None},
+    {"legacy_id": 53,  "machine_group": "FPT-GROUP", "name": "TL-FPT-L04-01",  "description": None},
+    {"legacy_id": 54,  "machine_group": "FTS-GROUP", "name": "TL-FTS-L01-01",  "description": None},
+    {"legacy_id": 55,  "machine_group": "FTS-GROUP", "name": "TL-FTS-L02-01",  "description": None},
+    {"legacy_id": 56,  "machine_group": "FTS-GROUP", "name": "TL-FTS-L03-01",  "description": None},
+    {"legacy_id": 57,  "machine_group": "FTS-GROUP", "name": "TL-FTS-L04-01",  "description": None},
+    {"legacy_id": 58,  "machine_group": "ICT-GROUP", "name": "TL-ICT-L01-01",  "description": None},
+    {"legacy_id": 59,  "machine_group": "ICT-GROUP", "name": "TL-ICT-L02-01",  "description": None},
+    {"legacy_id": 60,  "machine_group": "ICT-GROUP", "name": "TL-ICT-L03-01",  "description": None},
+    {"legacy_id": 61,  "machine_group": "ICT-GROUP", "name": "TL-ICT-L04-01",  "description": None},
+    {"legacy_id": 63,  "machine_group": "OVE-GROUP", "name": "FRA-OVE-L02-01", "description": None},
+    {"legacy_id": 64,  "machine_group": "OVE-GROUP", "name": "FRA-OVE-L03-01", "description": None},
+    {"legacy_id": 65,  "machine_group": "OVE-GROUP", "name": "FRA-OVE-L04-01", "description": None},
+    {"legacy_id": 66,  "machine_group": "OVE-GROUP", "name": "FRA-OVE-L05-01", "description": None},
+    {"legacy_id": 67,  "machine_group": "OVE-GROUP", "name": "FRA-OVE-L06-01", "description": None},
+    {"legacy_id": 68,  "machine_group": "PO-GROUP",  "name": "THT-PO-L01-01",  "description": None},
+    {"legacy_id": 69,  "machine_group": "PO-GROUP",  "name": "THT-PO-L02-01",  "description": None},
+    {"legacy_id": 70,  "machine_group": "PO-GROUP",  "name": "THT-PO-L03-01",  "description": None},
+    {"legacy_id": 71,  "machine_group": "PO-GROUP",  "name": "THT-PO-L04-01",  "description": None},
+    {"legacy_id": 72,  "machine_group": "PO-GROUP",  "name": "THT-PO-L05-01",  "description": None},
+    {"legacy_id": 75,  "machine_group": "PNP-GROUP", "name": "FRA-PP-L02-01",  "description": None},
+    {"legacy_id": 76,  "machine_group": "PNP-GROUP", "name": "FRA-PP-L02-02",  "description": None},
+    {"legacy_id": 77,  "machine_group": "PNP-GROUP", "name": "FRA-PP-L03-01",  "description": None},
+    {"legacy_id": 78,  "machine_group": "PNP-GROUP", "name": "FRA-PP-L03-02",  "description": None},
+    {"legacy_id": 79,  "machine_group": "PNP-GROUP", "name": "FRA-PP-L04-01",  "description": None},
+    {"legacy_id": 80,  "machine_group": "PNP-GROUP", "name": "FRA-PP-L04-02",  "description": None},
+    {"legacy_id": 81,  "machine_group": "PNP-GROUP", "name": "FRA-PP-L05-01",  "description": None},
+    {"legacy_id": 82,  "machine_group": "PNP-GROUP", "name": "FRA-PP-L05-02",  "description": None},
+    {"legacy_id": 83,  "machine_group": "PNP-GROUP", "name": "FRA-PP-L06-01",  "description": None},
+    {"legacy_id": 84,  "machine_group": "PNP-GROUP", "name": "FRA-PP-L06-02",  "description": None},
+    {"legacy_id": 85,  "machine_group": "SPI-GROUP", "name": "FRA-SPI-L01-01", "description": None},
+    {"legacy_id": 86,  "machine_group": "SPI-GROUP", "name": "FRA-SPI-L02-01", "description": None},
+    {"legacy_id": 87,  "machine_group": "SPI-GROUP", "name": "FRA-SPI-L03-01", "description": None},
+    {"legacy_id": 88,  "machine_group": "SPI-GROUP", "name": "FRA-SPI-L04-01", "description": None},
+    {"legacy_id": 89,  "machine_group": "SPI-GROUP", "name": "FRA-SPI-L05-01", "description": None},
+    {"legacy_id": 90,  "machine_group": "SPI-GROUP", "name": "FRA-SPI-L06-01", "description": None},
+    {"legacy_id": 91,  "machine_group": "SPP-GROUP", "name": "FRA-SPP-L01-01", "description": None},
+    {"legacy_id": 92,  "machine_group": "SPP-GROUP", "name": "FRA-SPP-L02-01", "description": None},
+    {"legacy_id": 93,  "machine_group": "SPP-GROUP", "name": "FRA-SPP-L03-01", "description": None},
+    {"legacy_id": 94,  "machine_group": "SPP-GROUP", "name": "FRA-SPP-L04-01", "description": None},
+    {"legacy_id": 95,  "machine_group": "SPP-GROUP", "name": "FRA-SPP-L05-01", "description": None},
+    {"legacy_id": 96,  "machine_group": "SPP-GROUP", "name": "FRA-SPP-L06-01", "description": None},
+    {"legacy_id": 97,  "machine_group": "WSM-GROUP", "name": "THT-WSM-L01-01", "description": None},
+    {"legacy_id": 98,  "machine_group": "WSM-GROUP", "name": "THT-WSM-L02-01", "description": None},
+    {"legacy_id": 99,  "machine_group": "WSM-GROUP", "name": "THT-WSM-L03-01", "description": None},
+    {"legacy_id": 100, "machine_group": "WSM-GROUP", "name": "THT-WSM-L04-01", "description": None},
+    {"legacy_id": 101, "machine_group": "WSM-GROUP", "name": "THT-WSM-L05-01", "description": None},
+    {"legacy_id": 102, "machine_group": "ASM-GROUP", "name": "ASS-ASM-L01-01", "description": None},
 ]
+
+machine_group_name_to_id = {
+    "LAB-GROUP": 1,
+    "SPP-GROUP": 2,
+    "SPI-GROUP": 3,
+    "PNP-GROUP": 4,
+    "OVE-GROUP": 5,
+    "AOI-GROUP": 6,
+    "AIM-GROUP": 10,
+    "PO-GROUP": 11,
+    "WSM-GROUP": 12,
+    "ICT-GROUP": 13,
+    "FPT-GROUP": 14,
+    "FTS-GROUP": 15,
+    "ASM-GROUP": 16,
+    "BCT-GROUP": 17,
+    "CC-GROUP": 21,
+}
+
 
 # Exact machine groups from production DB export – covers every machine_group_id
 # referenced by STATIONS_FIXED so the FK constraint is always satisfied.
-MACHINE_GROUPS_FIXED: list[dict[str, Any]] = [
-    {"id": 1,  "name": "LAB-GROUP",   "description": "Labeling Machines"},
-    {"id": 2,  "name": "SPP-GROUP",   "description": "Solder Paste Printer"},
-    {"id": 3,  "name": "SPI-GROUP",   "description": "Solder Paste Inspection"},
-    {"id": 4,  "name": "PNP-GROUP",   "description": "Pick & Place Machines"},
-    {"id": 5,  "name": "OVE-GROUP",   "description": "Reflow Ovens"},
-    {"id": 6,  "name": "AOI-GROUP",   "description": "Automated Optical Inspection"},
-    {"id": 10, "name": "AIM-GROUP",   "description": "Auto Insertion Machines"},
-    {"id": 11, "name": "PO-GROUP",    "description": "Pin-through-hole Ovens"},
-    {"id": 12, "name": "WSM-GROUP",   "description": "Wave Solder Machines"},
-    {"id": 13, "name": "ICT-GROUP",   "description": "In-Circuit Testers"},
-    {"id": 14, "name": "FPT-GROUP",   "description": "Flying Probe Testers"},
-    {"id": 15, "name": "FTS-GROUP",   "description": "Functional Test Systems"},
-    {"id": 16, "name": "ASM-GROUP",   "description": "Assembly Machines"},
-    {"id": 17, "name": "BCT-GROUP",   "description": "Box Build & Cable Testers"},
-    {"id": 21, "name": "CC-GROUP",    "description": "Conformal Coating Machines"},
-]
+
+# MACHINE GROUP FIXED brouillon 
+
 
 # Exact associations from line_station_association export
 LINE_STATION_ASSOCIATIONS_FIXED: list[tuple[int, int]] = [
@@ -385,7 +393,7 @@ def _pg_config_from_env() -> PgConfig:
     if not password:
         raise RuntimeError("Set PGPASSWORD environment variable")
     return PgConfig(
-        host=os.getenv("PGHOST", "host.docker.internal"),
+        host=os.getenv("PGHOST", "localhost"),
         port=int(os.getenv("PGPORT", "5435")),
         dbname=os.getenv("PGDATABASE", "postgres"),
         user=os.getenv("PGUSER", "postgres"),
@@ -523,20 +531,42 @@ def api_post(endpoint: str, payload: dict[str, Any], token: Optional[str] = None
 
 
 def gen_company_codes_api(n: int = 3, token=None, client_id: int = 1) -> list[int]:
-    
     if not token:
         raise ValueError("Token API manquant.")
-    
+
     if isinstance(token, str) and token.startswith("Bearer "):
         token = token.replace("Bearer ", "", 1)
-    
-    created_ids: list[int] = []
-    
+
     headers = _auth_headers(token)
+    created_ids: list[int] = []
 
     for i in range(n):
         name = f"CC-{i+1:03d}"
 
+        # 🔍 1. Vérifier si existe déjà
+        r = requests.get(
+            f"{BASE_URL}/company-codes/",
+            params={"name": name},
+            headers=headers,
+            timeout=30,
+            verify=False
+        )
+
+        if r.status_code == 200:
+            results = r.json()
+
+            # ⚠️ dépend du format API (liste ou objet paginé)
+            if results:
+                existing = results[0] if isinstance(results, list) else results.get("results", [])[0]
+                existing_id = int(existing["id"])
+                created_ids.append(existing_id)
+                print(f"Reusing existing company code '{name}' (ID {existing_id})")
+                continue
+
+        elif r.status_code != 404:
+            r.raise_for_status()
+
+        # ➕ 2. Créer si n'existe pas
         payload = {
             "name": name,
             "description": f"Company Code {i+1}",
@@ -560,52 +590,74 @@ def gen_company_codes_api(n: int = 3, token=None, client_id: int = 1) -> list[in
             created_ids.append(int(data["id"]))
             continue
 
+        # ⚠️ cas concurrence (race condition)
         if r.status_code == 409:
-            # le company code existe déjà → on récupère son id depuis le message
-            try:
-                data = r.json()
-                detail = data.get("detail", "")
-                # exemple: "Company code with name 'CC-001' already exists (ID: 3)"
-                import re
-                match = re.search(r"ID:\s*(\d+)", detail)
-                if match:
-                    existing_id = int(match.group(1))
-                    created_ids.append(existing_id)
-                    print(f"Reusing existing company code '{name}' with ID {existing_id}")
-                    continue
-            except Exception:
-                pass
+            # quelqu’un l’a créé entre le GET et le POST → on refait un GET
+            r2 = requests.get(
+                f"{BASE_URL}/company-codes/",
+                params={"name": name},
+                headers=headers,
+                timeout=30,
+                verify=False
+            )
 
-            raise RuntimeError(f"Company code '{name}' already exists, but ID could not be parsed.")
+            if r2.status_code == 200:
+                results = r2.json()
+                if results:
+                    existing = results[0] if isinstance(results, list) else results.get("results", [])[0]
+                    existing_id = int(existing["id"])
+                    created_ids.append(existing_id)
+                    print(f"Recovered after conflict '{name}' (ID {existing_id})")
+                    continue
+
+            raise RuntimeError(f"Conflict on '{name}' but unable to recover ID.")
 
         r.raise_for_status()
 
     print(f"  + company_codes (API): {len(created_ids)} rows")
     return created_ids
 
-
 def gen_clients_api(company_code_ids: list[int], n: int = 3, token=None) -> list[int]:
-      
     if not token:
         raise ValueError("Token API manquant.")
-    
-    names = ["PCB-Corp", "ElektraTech", "CircuitMasters", "NexaPCB", "SolderPro"]
-    created_ids: list[int] = []
-    
+
     headers = _auth_headers(token)
+    names = ["PCB-Corp", "ElektraTech", "CircuitMasters", "NexaPCB", "SolderPro"]
+
+    created_ids: list[int] = []
 
     for i in range(n):
+        cc_id = company_code_ids[i % len(company_code_ids)]
         client_name = f"{names[i % len(names)][:14]} {i+1}"
 
+        # 🔍 1. CHECK via GET
+        r = requests.get(
+            f"{BASE_URL}/clients/clients",
+            params={"name": client_name},
+            headers=headers,
+            timeout=30,
+            verify=False
+        )
+
+        if r.status_code == 200:
+            data = r.json()
+            results = data if isinstance(data, list) else data.get("results", [])
+
+            if results:
+                existing_id = int(results[0]["id"])
+                created_ids.append(existing_id)
+                print(f"Reusing existing client '{client_name}' ({existing_id})")
+                continue
+
+        # ➕ 2. CREATE
         payload = {
             "user_id": 1,
-            "company_code": f"CC{i+1:03d}",
             "name": client_name,
             "description": f"PCB manufacturing client {i+1}"
         }
 
         r = requests.post(
-            f"{BASE_URL}/clients/clients",
+            f"{BASE_URL}/clients/",
             json=payload,
             headers=headers,
             timeout=30,
@@ -615,44 +667,17 @@ def gen_clients_api(company_code_ids: list[int], n: int = 3, token=None) -> list
         print("CLIENT STATUS:", r.status_code)
         print("CLIENT RESPONSE:", r.text)
 
-        if r.status_code in (200, 201):
-            data = r.json()
-            client_id = data.get("id")
-            if not client_id:
-                raise RuntimeError(f"Client API response has no id: {data}")
-            created_ids.append(int(client_id))
-            continue
-
-        if r.status_code == 409:
-            try:
-                data = r.json()
-                detail = data.get("detail", "")
-                match = re.search(r"ID[:\s]*([0-9]+)", detail)
-                #match = re.search(r"\(ID:\s*(\d+)\)", detail)
-                if match:
-                    existing_id = int(match.group(1))
-                    created_ids.append(existing_id)
-                    print(f"Reusing existing client '{client_name}' with ID {existing_id}")
-                    continue
-            except Exception:
-                pass
-
-            raise RuntimeError(f"Client '{client_name}' already exists, but ID could not be parsed.")
-
         r.raise_for_status()
 
-    # Mise à jour des company codes avec le client_id
-    for i, cc_id in enumerate(company_code_ids):
-        client_id = created_ids[i % len(created_ids)]
+        client_id = int(r.json()["id"])
+        created_ids.append(client_id)
 
+        # 🔗 3. LINK client → company_code
         update_payload = {
-            "user_id": 1,
-            "client_id": client_id,
-            "name": f"CC-{i+1:03d}",
-            "description": f"Company Code {i+1}"
+            "client_id": client_id
         }
 
-        r = requests.put(
+        r = requests.patch(   # ✅ PATCH au lieu de PUT
             f"{BASE_URL}/company-codes/{cc_id}",
             json=update_payload,
             headers=headers,
@@ -660,8 +685,8 @@ def gen_clients_api(company_code_ids: list[int], n: int = 3, token=None) -> list
             verify=False
         )
 
-        print("COMPANY_CODE UPDATE STATUS:", r.status_code)
-        print("COMPANY_CODE UPDATE RESPONSE:", r.text)
+        print("LINK STATUS:", r.status_code)
+        print("LINK RESPONSE:", r.text)
 
         r.raise_for_status()
 
@@ -1203,11 +1228,7 @@ def gen_machine_groups_api(cell_ids: list[int], n: int = 10, token=None):
     return created_ids
 
 
-def seed_fixed_machine_groups_api(cell_ids: list[int], token: str) -> dict[int, int]:
-    """
-    Returns:
-        {export_machine_group_id: api_machine_group_id}
-    """
+def seed_machine_groups_api(cell_ids: list[int], token: str) -> dict[int, int]:
     if not cell_ids:
         raise ValueError("cell_ids est vide — impossible de créer les machine groups")
 
@@ -1215,155 +1236,162 @@ def seed_fixed_machine_groups_api(cell_ids: list[int], token: str) -> dict[int, 
         token = token.replace("Bearer ", "", 1)
 
     headers = _auth_headers(token)
-    MACHINE_GROUPS_URL = f"{BASE_URL}/machine-groups/machine_groups/"
-    id_map = {}
+    url = f"{BASE_URL}/machine-groups/machine_groups/"
 
-    for mg in MACHINE_GROUPS_FIXED:
+    # 🔥 1. définition locale SANS IDs
+    machine_groups = [
+        {"name": "LAB-GROUP", "description": "Labeling Machines"},
+        {"name": "SPP-GROUP", "description": "Solder Paste Printer"},
+        {"name": "SPI-GROUP", "description": "Solder Paste Inspection"},
+        {"name": "PNP-GROUP", "description": "Pick & Place Machines"},
+        {"name": "OVE-GROUP", "description": "Reflow Ovens"},
+        {"name": "AOI-GROUP", "description": "Automated Optical Inspection"},
+        {"name": "AIM-GROUP", "description": "Auto Insertion Machines"},
+        {"name": "PO-GROUP", "description": "Pin-through-hole Ovens"},
+        {"name": "WSM-GROUP", "description": "Wave Solder Machines"},
+        {"name": "ICT-GROUP", "description": "In-Circuit Testers"},
+        {"name": "FPT-GROUP", "description": "Flying Probe Testers"},
+        {"name": "FTS-GROUP", "description": "Functional Test Systems"},
+        {"name": "ASM-GROUP", "description": "Assembly Machines"},
+        {"name": "BCT-GROUP", "description": "Box Build & Cable Testers"},
+        {"name": "CC-GROUP", "description": "Conformal Coating Machines"},
+    ]
+
+    id_map: dict[int, int] = {}
+
+    # 🔥 2. GET existing once (important optimisation)
+    r = requests.get(url, headers=headers, timeout=30, verify=False)
+    existing = r.json()
+    existing_list = existing["results"] if isinstance(existing, dict) and "results" in existing else existing
+
+    existing_by_name = {x["name"]: x for x in existing_list}
+
+    # 🔥 3. create or reuse
+    for i, mg in enumerate(machine_groups):
+        name = mg["name"]
+
+        # ✔️ reuse if exists
+        if name in existing_by_name:
+            api_id = existing_by_name[name]["id"]
+            id_map[i + 1] = api_id
+            continue
+
+        # ✔️ create if not exists
         payload = {
-            "name": mg["name"],
+            "name": name,
             "description": mg["description"],
             "user_id": 1,
-            "cell_id": cell_ids[mg["id"] % len(cell_ids)],
+            "cell_id": cell_ids[i % len(cell_ids)],
             "is_active": True,
             "failure": False,
         }
 
-        r = requests.post(
-            MACHINE_GROUPS_URL,
-            json=payload,
-            headers=headers,
-            timeout=30,
-            verify=False
-        )
+        r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
 
         print("STATUS:", r.status_code)
         print("RESPONSE:", r.text)
 
-        if r.status_code in (200, 201):
-            id_map[mg["id"]] = r.json()["id"]
-            continue
-
-        if r.status_code == 409:
-            g = requests.get(
-                MACHINE_GROUPS_URL,
-                headers=headers,
-                timeout=30,
-                verify=False
-            )
-
-            if g.status_code == 200:
-                body = g.json()
-                items = body["results"] if isinstance(body, dict) and "results" in body else body
-
-                for item in items:
-                    if item.get("name") == payload["name"]:
-                        id_map[mg["id"]] = item["id"]
-                        break
-                else:
-                    print(f"⚠️ exists but not found: {payload['name']}")
-            continue
-
         r.raise_for_status()
+        api_id = r.json()["id"]
+
+        id_map[i + 1] = api_id
 
     print("Machine group id map:", id_map)
     return id_map
 
-def seed_fixed_stations_api(token: str, machine_group_id_map: dict[int, int]) -> dict[int, int]:
-    """
-    Returns:
-        {export_station_id: api_station_id}
-    """
+def seed_fixed_stations_api(
+    token: str,
+    machine_group_name_to_id: dict[str, int],
+) -> dict[int, int]:
     if isinstance(token, str) and token.startswith("Bearer "):
         token = token.replace("Bearer ", "", 1)
 
     headers = _auth_headers(token)
-    STATIONS_URL = f"{BASE_URL}/stations/stations/"
-    id_map = {}
+    url = f"{BASE_URL}/stations/stations/"
+    station_legacy_to_api_id: dict[int, int] = {}
 
-    for s in STATIONS_FIXED:
-        export_mg_id = s["machine_group_id"]
+    r = requests.get(url, headers=headers, timeout=30, verify=False)
+    r.raise_for_status()
+    existing = r.json()
+    existing_list = existing["results"] if isinstance(existing, dict) and "results" in existing else existing
+    existing_by_name = {
+        row["name"]: row for row in existing_list
+        if isinstance(row, dict) and "name" in row
+    }
 
-        if export_mg_id not in machine_group_id_map:
-            raise ValueError(
-                f"machine_group_id export introuvable: {export_mg_id} pour station {s['name']}"
-            )
+    for station in STATIONS_FIXED:
+        mg_name = station["machine_group"]
+        if mg_name not in machine_group_name_to_id:
+            raise ValueError(f"Machine group inconnu '{mg_name}' pour station '{station['name']}'")
+
+        if station["name"] in existing_by_name:
+            api_id = int(existing_by_name[station["name"]]["id"])
+            station_legacy_to_api_id[station["legacy_id"]] = api_id
+            print(f"Reusing existing station '{station['name']}' (ID {api_id})")
+            continue
 
         payload = {
-            "name": s["name"],
-            "description": s.get("description") or "",
-            "machine_group_id": machine_group_id_map[export_mg_id],
+            "machine_group_id": machine_group_name_to_id[mg_name],
+            "name": station["name"],
+            "description": station.get("description"),
             "is_active": True,
-            "user_id": 8,
-            "info": "",
+            "user_id": 5,
+            "info": station.get("info"),
         }
 
-        r = requests.post(
-            STATIONS_URL,
-            json=payload,
-            headers=headers,
-            timeout=30,
-            verify=False
-        )
-
-        print("STATUS:", r.status_code)
-        print("RESPONSE:", r.text)
+        r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
 
         if r.status_code in (200, 201):
-            id_map[s["id"]] = r.json()["id"]
+            api_id = int(r.json()["id"])
+            station_legacy_to_api_id[station["legacy_id"]] = api_id
+            print(f"Created station '{station['name']}' (ID {api_id})")
             continue
 
         if r.status_code in (400, 409):
-            g = requests.get(
-                STATIONS_URL,
-                headers=headers,
-                timeout=30,
-                verify=False
+            recovered_id = _get_existing_id_by_get(
+                "stations/stations/",
+                token,
+                wanted_value=station["name"],
+                name_key_candidates=("name",),
             )
-
-            if g.status_code == 200:
-                body = g.json()
-                items = body["results"] if isinstance(body, dict) and "results" in body else body
-
-                for item in items:
-                    if item.get("name") == payload["name"]:
-                        id_map[s["id"]] = item["id"]
-                        break
-                else:
-                    print(f"⚠️ station exists but not found: {payload['name']}")
-            continue
+            if recovered_id is not None:
+                station_legacy_to_api_id[station["legacy_id"]] = recovered_id
+                print(f"Recovered existing station '{station['name']}' (ID {recovered_id})")
+                continue
 
         r.raise_for_status()
 
-    print("station_id_map:", id_map)
-    return id_map
+    return station_legacy_to_api_id
 
-def seed_fixed_lines_api(token: str, station_id_map: dict[int, int]) -> list[int]:
+def seed_fixed_lines_api(token: str, station_legacy_to_api_id: dict[int, int]) -> dict[int, int]:
     """
     Create fixed lines through the API.
-    station_id_map maps export station IDs -> API station IDs.
-    Returns created/reused line IDs.
+    station_legacy_to_api_id maps export station IDs -> API station IDs.
+    Returns line legacy/export ID -> API line ID.
     """
 
     if isinstance(token, str) and token.startswith("Bearer "):
         token = token.replace("Bearer ", "", 1)
 
     headers = _auth_headers(token)
-    created_ids = []
+    line_legacy_to_api_id: dict[int, int] = {}
     LINES_URL = f"{BASE_URL}/lines/lines/"
 
     for ln in LINES_FIXED:
+        export_line_id = ln["id"]
+
         export_station_ids = [
             sid for lid, sid in LINE_STATION_ASSOCIATIONS_FIXED
-            if lid == ln["id"]
+            if lid == export_line_id
         ]
 
         api_station_ids = []
         for export_sid in export_station_ids:
-            api_sid = station_id_map.get(export_sid)
+            api_sid = station_legacy_to_api_id.get(export_sid)
             if api_sid is not None:
                 api_station_ids.append(api_sid)
             else:
-                print(f"⚠️ station export id introuvable dans station_id_map: {export_sid}")
+                print(f"⚠️ station export id introuvable dans station_legacy_to_api_id: {export_sid}")
 
         if not api_station_ids:
             print(f"⚠️ aucune station trouvée pour la line {ln['name']} — création impossible")
@@ -1392,8 +1420,9 @@ def seed_fixed_lines_api(token: str, station_id_map: dict[int, int]) -> list[int
         print("RESPONSE:", r.text)
 
         if r.status_code in (200, 201):
-            created_ids.append(r.json()["id"])
-            print(f"✅ created line {ln['name']} -> {r.json()['id']}")
+            api_line_id = int(r.json()["id"])
+            line_legacy_to_api_id[export_line_id] = api_line_id
+            print(f"✅ created line {ln['name']} -> {api_line_id}")
             continue
 
         if r.status_code in (400, 409, 422):
@@ -1408,12 +1437,16 @@ def seed_fixed_lines_api(token: str, station_id_map: dict[int, int]) -> list[int
                 body = g.json()
                 items = body["results"] if isinstance(body, dict) and "results" in body else body
 
+                found = False
                 for item in items:
                     if item.get("name") == ln["name"]:
-                        created_ids.append(item["id"])
-                        print(f"♻️ reused line {ln['name']} -> {item['id']}")
+                        api_line_id = int(item["id"])
+                        line_legacy_to_api_id[export_line_id] = api_line_id
+                        print(f"♻️ reused line {ln['name']} -> {api_line_id}")
+                        found = True
                         break
-                else:
+
+                if not found:
                     print(f"⚠️ line existe peut-être mais introuvable: {ln['name']}")
             else:
                 print(f"❌ GET lines failed: {g.status_code}")
@@ -1422,63 +1455,35 @@ def seed_fixed_lines_api(token: str, station_id_map: dict[int, int]) -> list[int
 
         r.raise_for_status()
 
-    print("Lines créées/réutilisées :", created_ids)
-    return created_ids
+    print("Lines créées/réutilisées :", line_legacy_to_api_id)
+    return line_legacy_to_api_id
 
+def build_line_station_associations(
+    line_legacy_to_api_id: dict[int, int],
+    station_legacy_to_api_id: dict[int, int],
+) -> list[tuple[int, int]]:
+    valid_associations: list[tuple[int, int]] = []
 
-def seed_fixed_line_station_association_api(
-    token: str,
-    line_id_map: dict[int, int],
-    station_id_map: dict[int, int],
-) -> None:
-    if isinstance(token, str) and token.startswith("Bearer "):
-        token = token.replace("Bearer ", "", 1)
+    for line_legacy_id, station_legacy_id in LINE_STATION_ASSOCIATIONS_FIXED:
+        line_api_id = line_legacy_to_api_id.get(line_legacy_id)
+        station_api_id = station_legacy_to_api_id.get(station_legacy_id)
 
-    headers = _auth_headers(token)
-    
-    ASSOC_URL = f"{BASE_URL}/lines/lines/"
-    now_str = _dt_str(datetime.now())
-
-    for export_line_id, export_station_id in LINE_STATION_ASSOCIATIONS_FIXED:
-        api_line_id = line_id_map.get(export_line_id)
-        api_station_id = station_id_map.get(export_station_id)
-
-        if api_line_id is None:
-            print(f"⚠️ line export id introuvable: {export_line_id}")
+        if line_api_id is None:
+            print(f"⚠️ line export id introuvable dans line_legacy_to_api_id: {line_legacy_id}")
             continue
 
-        if api_station_id is None:
-            print(f"⚠️ station export id introuvable: {export_station_id}")
+        if station_api_id is None:
+            print(f"⚠️ station export id introuvable dans station_legacy_to_api_id: {station_legacy_id}")
             continue
 
-        payload = {
-            "line_id": api_line_id,
-            "station_id": api_station_id,
-            "created_at": now_str,
-        }
+        valid_associations.append((line_api_id, station_api_id))
 
-        r = requests.post(
-            ASSOC_URL,
-            json=payload,
-            headers=headers,
-            timeout=30,
-            verify=False
-        )
+    return valid_associations
 
-        print("POST URL:", ASSOC_URL)
-        print("PAYLOAD:", payload)
-        print("STATUS:", r.status_code)
-        print("RESPONSE:", r.text)
 
-        if r.status_code in (200, 201):
-            print(f"✅ association créée {api_line_id} -> {api_station_id}")
-            continue
+# def gen_erp_groups   HERE STOP
 
-        if r.status_code in (400, 409):
-            print(f"♻️ association déjà existante ou ignorée {api_line_id} -> {api_station_id}")
-            continue
 
-        r.raise_for_status()  
 
 # ---------------------------------------------------------------------------
 # main
@@ -1571,15 +1576,23 @@ def main() -> None:
     machine_group_ids = gen_machine_groups_api(cell_ids=cell_ids, n=10, token=API_TOKEN)
     print("machine groups créés : ", machine_group_ids )
     
-    machine_group_id_map  = seed_fixed_machine_groups_api(cell_ids=cell_ids, token=API_TOKEN)
+    machine_group_id_map  = seed_machine_groups_api(cell_ids=cell_ids, token=API_TOKEN)
     print("Machine Groups map :", machine_group_id_map)
     
-    
-    station_id_map = seed_fixed_stations_api(token=API_TOKEN, machine_group_id_map=machine_group_id_map) 
-    print("Stations créés/réutilisés : ", station_id_map)
+    station_legacy_to_api_id = seed_fixed_stations_api(
+    token=API_TOKEN,
+    machine_group_name_to_id=machine_group_name_to_id
+    )
+     
  
-    lines_ids = seed_fixed_lines_api(token=API_TOKEN, station_id_map=station_id_map)
-    print("Lines créés/réutilisés", lines_ids) 
+    line_legacy_to_api_id = seed_fixed_lines_api(token=API_TOKEN, station_legacy_to_api_id=station_legacy_to_api_id)
+    print("Lines créés/réutilisés", line_legacy_to_api_id) 
+        
+    valid_associations = build_line_station_associations(
+    line_legacy_to_api_id=line_legacy_to_api_id,
+    station_legacy_to_api_id=station_legacy_to_api_id
+    )
+    print("Associations valides :", valid_associations[:10])
     
     
     conn.commit()
