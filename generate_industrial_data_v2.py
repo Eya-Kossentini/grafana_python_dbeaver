@@ -1049,8 +1049,7 @@ def gen_failure_group_types_api(n: int = 6, token=None) -> list[int]:
     print(f"  + failure_group_types (API): {len(created_ids)} rows")
     return created_ids
 
-def gen_machine_condition_groups_api(n: int = 3, token=None):
-
+def gen_machine_condition_groups_api(n: int = 3, token=None) -> list[int]:
     if isinstance(token, str) and token.startswith("Bearer "):
         token = token.replace("Bearer ", "", 1)
 
@@ -1062,13 +1061,14 @@ def gen_machine_condition_groups_api(n: int = 3, token=None):
         ("Operational", "Running, breaks, meetings"),
     ]
 
-    created_ids = []
+    created_ids: list[int] = []
 
     for i in range(n):
         name, desc = items[i % len(items)]
+        group_name = f"{name[:14]} {i+1}"
 
         payload = {
-            "group_name": f"{name[:14]} {i+1}",
+            "group_name": group_name,
             "group_description": desc,
             "is_active": True,
             "created_at": datetime.now().isoformat(),
@@ -1087,12 +1087,34 @@ def gen_machine_condition_groups_api(n: int = 3, token=None):
         print("RESPONSE:", r.text)
 
         if r.status_code in (200, 201):
-            created_ids.append(r.json()["id"])
+            data = _get_json_or_text(r)
+            created_ids.append(int(data["id"]))
             continue
 
         if r.status_code in (400, 409):
-            print(f"⚠️ exists → {name}")
-            continue
+            data = _get_json_or_text(r)
+            detail = str(data.get("detail", ""))
+
+            existing_id = _extract_id_from_detail(detail)
+            if existing_id is not None:
+                created_ids.append(existing_id)
+                print(f"Reusing existing machine condition group '{group_name}' with ID {existing_id}")
+                continue
+
+            existing_id = _get_existing_id_by_get(
+                "machine-condition-groups/machine-condition-groups/",
+                token,
+                wanted_value=group_name,
+                name_key_candidates=("group_name", "name"),
+            )
+            if existing_id is not None:
+                created_ids.append(existing_id)
+                print(f"Reusing existing machine condition group '{group_name}' with ID {existing_id}")
+                continue
+
+            raise RuntimeError(
+                f"Machine condition group '{group_name}' already exists, but ID could not be resolved."
+            )
 
         r.raise_for_status()
 
@@ -1481,8 +1503,1212 @@ def build_line_station_associations(
     return valid_associations
 
 
-# def gen_erp_groups   HERE STOP
+def gen_erp_groups_api(token: str, window_start: datetime) -> dict[str, int]:
+    """
+    Create ERP groups through the API.
+    Returns a mapping: process step code -> ERP group API id
+    """
 
+    if isinstance(token, str) and token.startswith("Bearer "):
+        token = token.replace("Bearer ", "", 1)
+
+    headers = _auth_headers(token)
+    now = datetime.now()
+    ERP_GROUPS_URL = f"{BASE_URL}/erp-groups/erp-groups/"
+
+    erp_group_code_to_api_id: dict[str, int] = {}
+
+    for code, desc, _ in PCB_PROCESS_STEPS:
+        erpgroup_no = f"ERP-{code}"
+
+        payload = {
+            "state": 1,
+            "erpgroup_no": erpgroup_no,
+            "erp_group_description": desc,
+            "erpsystem": "SAP",
+            "sequential": True,
+            "separate_station": False,
+            "fixed_layer": False,
+            "created_on": window_start.isoformat(),
+            "edited_on": now.isoformat(),
+            "modified_by": 1,
+            "user_id": 1,
+            "cst_id": None,
+            "valid": True,
+        }
+
+        print("POST URL:", ERP_GROUPS_URL)
+        print("PAYLOAD:", payload)
+
+        r = requests.post(
+            ERP_GROUPS_URL,
+            json=payload,
+            headers=headers,
+            timeout=30,
+            verify=False,
+        )
+
+        print("STATUS:", r.status_code)
+        print("RESPONSE:", r.text)
+
+        if r.status_code in (200, 201):
+            api_id = int(r.json()["id"])
+            erp_group_code_to_api_id[code] = api_id
+            print(f"✅ created ERP group {erpgroup_no} -> {api_id}")
+            continue
+
+        if r.status_code in (400, 409, 422):
+            g = requests.get(
+                ERP_GROUPS_URL,
+                headers=headers,
+                timeout=30,
+                verify=False,
+            )
+
+            if g.status_code == 200:
+                body = g.json()
+                items = body["results"] if isinstance(body, dict) and "results" in body else body
+
+                found = False
+                for item in items:
+                    if item.get("erpgroup_no") == erpgroup_no:
+                        api_id = int(item["id"])
+                        erp_group_code_to_api_id[code] = api_id
+                        print(f"♻️ reused ERP group {erpgroup_no} -> {api_id}")
+                        found = True
+                        break
+
+                if not found:
+                    print(f"⚠️ ERP group existe peut-être mais introuvable: {erpgroup_no}")
+            else:
+                print(f"❌ GET ERP groups failed: {g.status_code}")
+
+            continue
+
+        r.raise_for_status()
+
+    print("ERP groups créés/réutilisés :", erp_group_code_to_api_id)
+    return erp_group_code_to_api_id
+
+
+def gen_failure_types_api(
+    token: str,
+    failure_group_ids: list[int],
+    site_ids: list[int],
+) -> dict[str, int]:
+    """
+    Create failure types through the API.
+    Returns a mapping: failure_type_code -> API failure_type_id
+    """
+
+    if isinstance(token, str) and token.startswith("Bearer "):
+        token = token.replace("Bearer ", "", 1)
+
+    headers = _auth_headers(token)
+    now = datetime.now()
+    FAILURE_TYPES_URL = f"{BASE_URL}/failure-types/failure-types/"
+
+    failures = [
+        ("FT-SB01", "Solder Bridge",           0),
+        ("FT-SB02", "Insufficient Solder",     0),
+        ("FT-SB03", "Solder Ball",             0),
+        ("FT-CM01", "Missing Component",       1),
+        ("FT-CM02", "Wrong Component",         1),
+        ("FT-CM03", "Tombstoning",             1),
+        ("FT-CM04", "Component Rotation Error",1),
+        ("FT-PB01", "PCB Scratch",             2),
+        ("FT-PB02", "Board Contamination",     2),
+        ("FT-PR01", "Paste Insufficiency",     3),
+        ("FT-PR02", "Paste Bridging",          3),
+        ("FT-PR03", "Placement Offset",        3),
+        ("FT-EL01", "Short Circuit",           4),
+        ("FT-EL02", "Open Circuit",            4),
+        ("FT-EL03", "ESD Damage",              4),
+        ("FT-CS01", "Flux Residue",            5),
+        ("FT-CS02", "Cosmetic Scratch",        5),
+    ]
+
+    failure_type_code_to_id: dict[str, int] = {}
+
+    for i, (base_code, desc, grp) in enumerate(failures):
+        failure_type_code = base_code
+        payload = {
+            "failure_type_code": failure_type_code,
+            "failure_type_desc": desc,
+            "site_id": site_ids[i % len(site_ids)],
+            "failure_group_id": failure_group_ids[grp % len(failure_group_ids)],
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+        }
+
+        print("POST URL:", FAILURE_TYPES_URL)
+        print("PAYLOAD:", payload)
+
+        r = requests.post(
+            FAILURE_TYPES_URL,
+            json=payload,
+            headers=headers,
+            timeout=30,
+            verify=False,
+        )
+
+        print("STATUS:", r.status_code)
+        print("RESPONSE:", r.text)
+
+        if r.status_code in (200, 201):
+            api_id = int(r.json()["failure_type_id"])
+            failure_type_code_to_id[failure_type_code] = api_id
+            print(f"✅ created failure type {failure_type_code} -> {api_id}")
+            continue
+
+        if r.status_code in (400, 409, 422):
+            g = requests.get(
+                FAILURE_TYPES_URL,
+                headers=headers,
+                timeout=30,
+                verify=False,
+            )
+
+            if g.status_code == 200:
+                body = g.json()
+                items = body["results"] if isinstance(body, dict) and "results" in body else body
+
+                found = False
+                for item in items:
+                    if item.get("failure_type_code") == failure_type_code:
+                        api_id = int(item["failure_type_id"])
+                        failure_type_code_to_id[failure_type_code] = api_id
+                        print(f"♻️ reused failure type {failure_type_code} -> {api_id}")
+                        found = True
+                        break
+
+                if not found:
+                    print(f"⚠️ failure type existe peut-être mais introuvable: {failure_type_code}")
+            else:
+                print(f"❌ GET failure types failed: {g.status_code}")
+
+            continue
+
+        r.raise_for_status()
+
+    print("Failure types créés/réutilisés :", failure_type_code_to_id)
+    return failure_type_code_to_id
+
+def gen_machine_conditions_ref_api(
+    token: str,
+    machine_condition_group_ids: list[int],
+) -> dict[str, int]:
+    """
+    Create/reuse machine conditions through the API.
+    Returns a mapping: condition code -> API condition id
+    """
+
+    if not machine_condition_group_ids:
+        raise RuntimeError("machine_condition_group_ids est vide.")
+
+    if isinstance(token, str) and token.startswith("Bearer "):
+        token = token.replace("Bearer ", "", 1)
+
+    headers = _auth_headers(token)
+    now = datetime.now()
+    MACHINE_CONDITIONS_URL = f"{BASE_URL}/machine-conditions/machine-conditions/"
+
+    condition_code_to_id: dict[str, int] = {}
+
+    for c in ALLOWED_CONDITIONS:
+        group_api_id = machine_condition_group_ids[
+            (c["group_id"] - 1) % len(machine_condition_group_ids)
+        ]
+
+        payload = {
+            "group_id": group_api_id,
+            "condition_name": c["code"],
+            "condition_description": c["desc"],
+            "color_rgb": c["color"],
+            "is_active": True,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+        }
+
+        print("POST URL:", MACHINE_CONDITIONS_URL)
+        print("PAYLOAD:", payload)
+
+        r = requests.post(
+            MACHINE_CONDITIONS_URL,
+            json=payload,
+            headers=headers,
+            timeout=30,
+            verify=False,
+        )
+
+        print("STATUS:", r.status_code)
+        print("RESPONSE:", r.text)
+
+        if r.status_code in (200, 201):
+            data = _get_json_or_text(r)
+            api_id = int(data["id"])
+            condition_code_to_id[c["code"]] = api_id
+            print(f"✅ created machine condition {c['code']} -> {api_id}")
+            continue
+
+        if r.status_code in (400, 409, 422):
+            data = _get_json_or_text(r)
+            detail = str(data.get("detail", ""))
+
+            existing_id = _extract_id_from_detail(detail)
+            if existing_id is not None:
+                condition_code_to_id[c["code"]] = existing_id
+                print(f"♻️ reused machine condition {c['code']} -> {existing_id}")
+                continue
+
+            existing_id = _get_existing_id_by_get(
+                "machine-conditions/machine-conditions/",
+                token,
+                wanted_value=c["code"],
+                name_key_candidates=("condition_name", "name"),
+            )
+            if existing_id is not None:
+                condition_code_to_id[c["code"]] = existing_id
+                print(f"♻️ reused machine condition {c['code']} -> {existing_id}")
+                continue
+
+            raise RuntimeError(
+                f"Machine condition '{c['code']}' already exists, but ID could not be resolved."
+            )
+
+        r.raise_for_status()
+
+    print("Machine conditions créées/réutilisées :", condition_code_to_id)
+    return condition_code_to_id
+
+
+def gen_part_groups_api(
+    token: str,
+    part_group_type_ids: list[int],
+) -> dict[str, int]:
+    """
+    Create/reuse part groups through the API.
+    Returns a mapping: part group name -> API id
+    """
+
+    if not part_group_type_ids:
+        raise RuntimeError("part_group_type_ids est vide.")
+
+    if isinstance(token, str) and token.startswith("Bearer "):
+        token = token.replace("Bearer ", "", 1)
+
+    headers = _auth_headers(token)
+    now = datetime.now()
+    PART_GROUPS_URL = f"{BASE_URL}/part-groups/part-groups/"
+
+    groups = [
+        ("PCBA-FG",   "Finished PCB Assemblies",   0, "EA"),
+        ("PCBA-WIP",  "WIP PCB Sub-Assemblies",    1, "EA"),
+        ("SMD-COMP",  "SMD Components Pool",       2, "EA"),
+        ("THT-COMP",  "THT Components Pool",       2, "EA"),
+        ("RAW-PCB",   "Bare PCB Boards",           3, "EA"),
+        ("CONSM",     "Consumables (solder/flux)", 3, "KG"),
+    ]
+
+    part_group_name_to_id: dict[str, int] = {}
+
+    for i, (nm, ds, gti, pt) in enumerate(groups):
+        group_name = nm
+
+        payload = {
+            "name": group_name,
+            "description": ds,
+            "user_id": 1,
+            "part_type": pt,
+            "costs": random.randint(10, 500),
+            "is_active": True,
+            "circulating_lot": random.randint(50, 500),
+            "automatic_emptying": 0,
+            "master_workplan": None,
+            "comment": None,
+            "state": 1,
+            "material_transfer": False,
+            "created_on": now.isoformat(),
+            "edited_on": now.isoformat(),
+            "part_group_type_id": part_group_type_ids[gti % len(part_group_type_ids)],
+        }
+
+        print("POST URL:", PART_GROUPS_URL)
+        print("PAYLOAD:", payload)
+
+        r = requests.post(
+            PART_GROUPS_URL,
+            json=payload,
+            headers=headers,
+            timeout=30,
+            verify=False,
+        )
+
+        print("STATUS:", r.status_code)
+        print("RESPONSE:", r.text)
+
+        if r.status_code in (200, 201):
+            data = _get_json_or_text(r)
+            api_id = int(data["id"])
+            part_group_name_to_id[group_name] = api_id
+            print(f"✅ created part group {group_name} -> {api_id}")
+            continue
+
+        if r.status_code in (400, 409, 422):
+            data = _get_json_or_text(r)
+            detail = str(data.get("detail", ""))
+
+            existing_id = _extract_id_from_detail(detail)
+            if existing_id is not None:
+                part_group_name_to_id[group_name] = existing_id
+                print(f"♻️ reused part group {group_name} -> {existing_id}")
+                continue
+
+            existing_id = _get_existing_id_by_get(
+                "part-groups/part-groups/",
+                token,
+                wanted_value=group_name,
+                name_key_candidates=("name",),
+            )
+            if existing_id is not None:
+                part_group_name_to_id[group_name] = existing_id
+                print(f"♻️ reused part group {group_name} -> {existing_id}")
+                continue
+
+            raise RuntimeError(
+                f"Part group '{group_name}' already exists, but ID could not be resolved."
+            )
+
+        r.raise_for_status()
+
+    print("Part groups créés/réutilisés :", part_group_name_to_id)
+    return part_group_name_to_id
+
+
+def gen_part_master_api(
+    token: str,
+    part_type_ids: list[int],
+    part_group_map: dict[str, int],
+    machine_group_ids: list[int],
+    site_ids: list[int],
+    unit_id: int,
+    n_products: int = 8,
+) -> tuple[dict[str, int], list[str]]:
+    """
+    Create/reuse part master entries through the API.
+    Returns:
+        - part_number_to_id
+        - list of part_numbers
+    """
+
+    if not part_type_ids:
+        raise RuntimeError("part_type_ids est vide.")
+    if not part_group_map:
+        raise RuntimeError("part_group_map est vide.")
+    if not machine_group_ids:
+        raise RuntimeError("machine_group_ids est vide.")
+    if not site_ids:
+        raise RuntimeError("site_ids est vide.")
+    if not unit_id:
+        raise RuntimeError("unit_id est vide ou invalide.")
+
+    if isinstance(token, str) and token.startswith("Bearer "):
+        token = token.replace("Bearer ", "", 1)
+
+    headers = _auth_headers(token)
+    now = datetime.now()
+    PART_MASTER_URL = f"{BASE_URL}/part-masters/part-master/"
+
+    rows: list[dict[str, Any]] = []
+    product_names = [
+        ("PCB-CTL-001", "Motor Controller Board v1.2"),
+        ("PCB-PSU-002", "Power Supply Unit 24V/10A"),
+        ("PCB-COM-003", "Communication Gateway PCB"),
+        ("PCB-SEN-004", "Sensor Interface Board"),
+        ("PCB-DRV-005", "LED Driver Board 3-channel"),
+        ("PCB-IOT-006", "IoT Node Board - LoRa"),
+        ("PCB-HMI-007", "HMI Touch Controller"),
+        ("PCB-AMP-008", "Audio Amplifier Board 2x50W"),
+    ]
+
+    # Produits finis
+    for i, (pn, desc) in enumerate(product_names[:n_products]):
+        payload = {
+            "part_number": pn,
+            "description": desc,
+            "part_status": "active",
+            "parttype_id": part_type_ids[0],
+            "partgroup_id": part_group_map["PCBA-FG"],
+            "case_type": random.choice(["SMT", "MIXED"]),
+            "product": True,
+            "panel": True,
+            "variant": False,
+            "machine_group_id": machine_group_ids[1 % len(machine_group_ids)],
+            "material_info": "FR4 1.6mm HASL",
+            "parts_index": i + 1,
+            "edit_order_based_bom": False,
+            "site_id": site_ids[i % len(site_ids)],
+            "unit_id": unit_id,
+            "material_code": f"MAT-{pn}",
+            "no_of_panels": random.choice([1, 2, 4]),
+            "customer_material_number": f"CUST-{pn}",
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+        }
+
+        # enlève seulement les champs optionnels à None
+        payload = {k: v for k, v in payload.items() if v is not None}
+        rows.append(payload)
+
+    # Composants
+    comp_offset = len(rows)
+    for ci, (prefix, ctype, pkg) in enumerate(PCB_COMPONENT_TYPES):
+        for vi in range(3):
+            pn = f"{prefix}{ci+1:02d}{vi+1:02d}"
+            payload = {
+                "part_number": pn,
+                "description": f"{ctype} {pkg} variant {vi+1}",
+                "part_status": "active",
+                "parttype_id": part_type_ids[2 % len(part_type_ids)],
+                "partgroup_id": (
+                    part_group_map["SMD-COMP"]
+                    if prefix in {"R", "C", "U", "Q", "D", "L", "F"}
+                    else part_group_map["THT-COMP"]
+                ),
+                "case_type": pkg,
+                "product": False,
+                "panel": False,
+                "variant": vi > 0,
+                "machine_group_id": None,
+                "material_info": None,
+                "parts_index": comp_offset + ci * 3 + vi + 1,
+                "edit_order_based_bom": False,
+                "site_id": site_ids[0],
+                "unit_id": unit_id,
+                "material_code": f"MAT-{pn}",
+                "no_of_panels": 1,
+                "customer_material_number": None,
+                "created_at": now.isoformat(),
+                "updated_at": now.isoformat(),
+            }
+
+            payload = {k: v for k, v in payload.items() if v is not None}
+            rows.append(payload)
+
+    part_number_to_id: dict[str, int] = {}
+    created_part_numbers: list[str] = []
+
+    for payload in rows:
+        print("POST URL:", PART_MASTER_URL)
+        print("PAYLOAD:", payload)
+
+        r = requests.post(
+            PART_MASTER_URL,
+            json=payload,
+            headers=headers,
+            timeout=30,
+            verify=False,
+        )
+
+        print("STATUS:", r.status_code)
+        print("RESPONSE:", r.text)
+
+        part_number = payload["part_number"]
+
+        if r.status_code in (200, 201):
+            data = _get_json_or_text(r)
+            api_id = int(data["id"])
+            part_number_to_id[part_number] = api_id
+            created_part_numbers.append(part_number)
+            print(f"✅ created part {part_number} -> {api_id}")
+            continue
+
+        if r.status_code == 422:
+            raise RuntimeError(
+                f"Payload invalide pour part '{part_number}': {r.text}"
+            )
+
+        if r.status_code in (400, 409):
+            data = _get_json_or_text(r)
+            detail = str(data.get("detail", ""))
+
+            existing_id = _extract_id_from_detail(detail)
+            if existing_id is not None:
+                part_number_to_id[part_number] = existing_id
+                created_part_numbers.append(part_number)
+                print(f"♻️ reused part {part_number} -> {existing_id}")
+                continue
+
+            existing_id = _get_existing_id_by_get(
+                "part-masters/part-master/",
+                token,
+                wanted_value=part_number,
+                name_key_candidates=("part_number", "name"),
+            )
+            if existing_id is not None:
+                part_number_to_id[part_number] = existing_id
+                created_part_numbers.append(part_number)
+                print(f"♻️ reused part {part_number} -> {existing_id}")
+                continue
+
+            raise RuntimeError(
+                f"Part '{part_number}' already exists, but ID could not be resolved."
+            )
+
+        r.raise_for_status()
+
+    print("Part master créés/réutilisés :", part_number_to_id)
+    return part_number_to_id, created_part_numbers
+
+
+# ---------------------------------------------------------------------------
+# Layer 2
+# ---------------------------------------------------------------------------
+
+
+def gen_assign_stations_to_erpgrp_api(
+    token: str,
+    station_ids: list[int],
+    erp_group_ids: list[int],
+) -> list[tuple[int, int]]:
+    """
+    Create/reuse station <-> ERP group assignments through the API.
+    Returns a list of valid (station_id, erp_group_id) assignments.
+    """
+
+    if not station_ids:
+        raise RuntimeError("station_ids est vide.")
+    if not erp_group_ids:
+        raise RuntimeError("erp_group_ids est vide.")
+
+    if isinstance(token, str) and token.startswith("Bearer "):
+        token = token.replace("Bearer ", "", 1)
+
+    headers = _auth_headers(token)
+    url = f"{BASE_URL}/assign-stations/assign-stations-to-erpgrp/"
+
+    created_pairs: list[tuple[int, int]] = []
+
+    for i, sid in enumerate(station_ids):
+        erp_group_id = erp_group_ids[i % len(erp_group_ids)]
+
+        payload = {
+            "station_id": sid,
+            "erp_group_id": erp_group_id,
+            "station_type": "production",
+            "user_id": 1,
+        }
+
+        print("POST URL:", url)
+        print("PAYLOAD:", payload)
+
+        try:
+            r = requests.post(
+                url,
+                json=payload,
+                headers=headers,
+                timeout=30,
+                verify=False,
+            )
+        except requests.exceptions.RequestException as e:
+            raise RuntimeError(
+                f"Erreur réseau pendant l'assignation station {sid} -> ERP group {erp_group_id}: {e}"
+            ) from e
+
+        print("STATUS:", r.status_code)
+        print("RESPONSE:", r.text)
+
+        if r.status_code in (200, 201):
+            created_pairs.append((sid, erp_group_id))
+            print(f"✅ assigned station {sid} -> ERP group {erp_group_id}")
+            continue
+
+        if r.status_code == 422:
+            raise RuntimeError(
+                f"Payload invalide pour station {sid} -> ERP group {erp_group_id}: {r.text}"
+            )
+
+        if r.status_code in (400, 409):
+            # Selon le backend, ça peut vouloir dire "already exists"
+            # On considère l'association comme existante si le backend refuse pour doublon.
+            created_pairs.append((sid, erp_group_id))
+            print(f"♻️ assignment déjà existant ou refusé en doublon: station {sid} -> ERP group {erp_group_id}")
+            continue
+
+        r.raise_for_status()
+
+    print("Assignations station -> ERP group :", created_pairs[:10])
+    return created_pairs
+
+def gen_work_plans_api(
+    site_ids: list[int],
+    client_ids: list[int],
+    company_code_ids: list[int],
+    product_part_master_ids: list[str],
+    window_start: datetime,
+    window_end: datetime,
+    token: str
+) -> list[dict[str, Any]]:
+
+    headers = _auth_headers(token)
+    created = []
+
+    valid_from = window_start - timedelta(days=30)
+
+    for i, pn in enumerate(product_part_master_ids):
+
+        payload = {
+            "version": 1,
+            "is_current": True,
+            "user_id": 1,
+            "site_id": site_ids[i % len(site_ids)],
+            "client_id": client_ids[i % len(client_ids)],
+            "company_id": company_code_ids[i % len(company_code_ids)],
+            "source": 1,
+            "status": 1,
+            "product_vers_id": i + 1,
+            "workplan_status": "R",
+            "part_no": pn,
+            "part_desc": f"Work plan for {pn}",
+            "workplan_desc": f"SMT/THT production plan v1 - {pn}",
+            "workplan_type": random.choice(["SMT", "MIX", "THT"]),
+            "workplan_version_erp": f"WP-{i+1:04d}-V1",
+            "created_at": valid_from.isoformat(),
+        }
+
+        r = requests.post(
+            f"{BASE_URL}/workplans/workplan/",
+            json=payload,
+            headers=headers,
+            timeout=30,
+            verify=False
+        )
+
+        print("WP STATUS:", r.status_code)
+        print("WP RESPONSE:", r.text)
+
+        if r.status_code in (200, 201):
+            data = r.json()
+
+            wp_id = data["id"]
+
+            created.append({
+                "id": wp_id,
+                "part_no": pn,
+                "url": f"{BASE_URL}/workplans/workplan/{wp_id}"
+            })
+            continue
+
+        if r.status_code in (400, 409):
+            data = _get_json_or_text(r)
+            detail = str(data.get("detail", ""))
+            
+            existing_id = _extract_id_from_detail(detail)
+            if existing_id is not None:
+                created.append({
+                    "id": existing_id,
+                    "part_no": pn,
+                    "url": f"{BASE_URL}/workplans/workplan/{existing_id}",
+                })
+                print(f"Reusing existing workplan '{pn}' (ID {existing_id})")
+                continue
+            r.raise_for_status()
+
+    print(f"  + work_plans (API): {len(created)}")
+    return created
+
+
+def gen_work_steps_api(
+    workplan_ids: list[int],
+    erp_group_ids: list[int],
+    window_start: datetime,
+    token: str
+) -> list[dict[str, Any]]:
+    headers = _auth_headers(token)
+    now = datetime.now()
+    created_steps: list[dict[str, Any]] = []
+
+    for wp_id in workplan_ids:
+        for step_i, (code, desc, step_type) in enumerate(PCB_PROCESS_STEPS):
+            eid = erp_group_ids[step_i % len(erp_group_ids)]
+
+            payload = {
+                "workplan_id": wp_id,
+                "erp_group_id": eid,
+                "workstep_no": (step_i + 1) * 10,
+                "step": step_i + 1,
+                "setup_time": round(random.uniform(15, 60), 2),
+                "te_person": 1,
+                "te_machine": round(AVG_CYCLE_TIME_SEC / 60, 2),
+                "te_time_base": 60,
+                "te_qty_base": 1,
+                "transport_time": round(random.uniform(1, 10), 2),
+                "wait_time": round(random.uniform(0, 30), 2),
+                "status": 1,
+                "equ_id": None,
+                "msl_relevant": 0,
+                "msl_offset": 0,
+                "panel_count": random.choice([1, 2, 4]),
+                "workstep_desc": desc,
+                "erp_grp_no": f"ERP-{code}",
+                "erp_grp_desc": desc,
+                "time_unit": "MIN",
+                "setup_flag": "X" if step_i == 0 else "",
+                "workstep_version_erp": f"WS-{wp_id:04d}-{step_i+1:02d}",
+                "info": step_type,
+                "confirmation": "AUTO",
+                "sequentiell": "X",
+                "workstep_type": step_type,
+                "traceflag": "X",
+                "step_type": random.choice(["manuel", "auto", "semiAuto"]),
+                "created_at": window_start.isoformat(),
+                "stamp": now.isoformat(),
+            }
+
+            r = requests.post(
+                f"{BASE_URL}/worksteps/worksteps/",
+                json=payload,
+                headers=headers,
+                timeout=30,
+                verify=False
+            )
+
+            print("WORKSTEP STATUS:", r.status_code)
+            print("WORKSTEP RESPONSE:", r.text)
+
+            if r.status_code in (200, 201):
+                data = r.json()
+                step_id = data["id"]
+
+                created_steps.append({
+                    "id": step_id,
+                    "workplan_id": wp_id,
+                    "url": f"{BASE_URL}/worksteps/worksteps/{step_id}",
+                })
+                continue
+            
+            if r.status_code in (400, 422):
+                data = _get_json_or_text(r)
+                print(f"Skipping workstep for workplan {wp_id}: {data}")
+                continue
+            
+            if r.status_code == 409:
+                data = _get_json_or_text(r)
+                detail = str(data.get("detail", ""))
+                existing_id = _extract_id_from_detail(detail)
+                
+                if existing_id is not None:
+                    created_steps.append({
+                        "id": existing_id,
+                        "workplan_id": wp_id,
+                        "url": f"{BASE_URL}/worksteps/workstep/{existing_id}",
+                    })
+                    continue
+                
+                r.raise_for_status()
+
+    print(f"  + work_steps (API): {len(created_steps)}")
+    return created_steps
+
+def gen_bom_headers_api(
+    product_part_master_ids: list[int],
+    window_start: datetime,
+    token: str,
+) -> list[dict[str, Any]]:
+
+    headers = _auth_headers(token)
+    created = []
+    now = datetime.now()
+    vf = window_start - timedelta(days=60)
+
+    for pm_id in product_part_master_ids:
+
+        payload = {
+            "description": f"BOM for {pm_id}",
+            "valid_from": vf.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+            "valid_to": None,
+            "part_master_id": pm_id,
+            "created_by": "system",
+            "updated_by": "system",
+            "state": "draft",
+            "version": 1,
+            "is_current": True,
+            "previous_version_id": None,
+        }
+
+        r = requests.post(
+            f"{BASE_URL}/bom-headers/bom/headers/",
+            json=payload,
+            headers=headers,
+            timeout=30,
+            verify=False,
+        )
+
+        print("BOM HEADER STATUS:", r.status_code)
+        print("BOM HEADER RESPONSE:", r.text)
+
+        if r.status_code in (200, 201):
+            data = r.json()
+            hid = data["id"]
+            created.append({
+                "id": hid,
+                "part_master_id": pm_id,
+                "url": f"{BASE_URL}/bom-headers/bom/headers/{hid}",
+            })
+            continue
+
+        if r.status_code == 409:
+            data = _get_json_or_text(r)
+            detail = str(data.get("detail", ""))
+
+            existing_id = _extract_id_from_detail(detail)
+            if existing_id is not None:
+                created.append({
+                    "id": existing_id,
+                    "part_master_id": pm_id,
+                    "url": f"{BASE_URL}/bom-headers/bom/headers/{existing_id}",
+                })
+                continue
+
+        print(f"Skipping BOM header for part_master_id={pm_id}")
+
+    return created
+
+
+            
+def gen_bom_insertion_api(
+    product_part_master_ids: list[str],
+    token: str
+):
+
+    headers = _auth_headers(token)
+
+    for pn in product_part_master_ids:
+
+        payload = {
+            "part_number": pn,
+            "bom_master_version": 1,
+            "workplan_master_version": 1,
+        }
+
+        r = requests.post(
+            f"{BASE_URL}/api/merge/bom-insertions",
+            json=payload,
+            headers=headers,
+            timeout=30,
+            verify=False,
+        )
+
+        print("BOM INSERT STATUS:", r.status_code)
+        
+def gen_bom_items_api(
+    bom_header_rows: list[dict],
+    component_ids: list[int],
+    token: str
+):
+
+    headers = _auth_headers(token)
+
+    for row in bom_header_rows:
+        bh_id = row["id"]
+
+        for i in range(random.randint(5, 15)):
+            payload = {
+                "bom_header_id": bh_id,
+                "part_master_id": random.choice(component_ids),
+                "quantity": random.randint(1, 10),
+                "is_product": False,
+                "component_name": f"Comp-{i}",
+                "layer": random.choice([1, 2]),
+            }
+
+            r = requests.post(
+                f"{BASE_URL}/bom-items/bom/items/",
+                json=payload,
+                headers=headers,
+                timeout=30,
+                verify=False,
+            )
+
+            print("BOM ITEM STATUS:", r.status_code)
+
+        
+# ---------------------------------------------------------------------------
+# Layer 3
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class WOWindow:
+    workorder_id: int
+    part_number: str
+    part_id: int
+    company_id: int
+    event_start: datetime
+    event_end: datetime
+    state: str
+    qty: int
+
+
+def gen_work_orders_api(
+    client_ids: list[int],
+    company_code_ids: list[int],
+    site_ids: list[int],
+    product_part_master_ids: list[str],
+    product_part_ids: list[int],
+    workplan_by_part_no: dict[str, dict[str, Any]],
+    window_start: datetime,
+    window_end: datetime,
+    n: int,
+    wo_qty_min: int,
+    wo_qty_max: int,
+    token: str,
+) -> tuple[list[int], dict[int, WOWindow]]:
+    headers = _auth_headers(token)
+    plan = _state_plan(n)
+    created_ids: list[int] = []
+    windows: dict[int, WOWindow] = {}
+
+    for i in range(n):
+        state = plan[i] if i < len(plan) else "active"
+
+        pn_idx = random.randrange(len(product_part_master_ids))
+        pn = product_part_master_ids[pn_idx]
+        pid = product_part_ids[pn_idx]
+        cid = company_code_ids[i % len(company_code_ids)]
+        qty = random.randint(wo_qty_min, wo_qty_max)
+        dur = _wo_duration(qty)
+
+        if state in {"delivered", "finished"}:
+            d_lo = window_start + dur
+            d_hi = window_end - timedelta(hours=1)
+            delivery_dt = _clamp_dt(_random_between(d_lo, d_hi), d_lo, d_hi)
+            delivery_dt = delivery_dt.replace(minute=0, second=0, microsecond=0)
+            start_dt = _snap_shift_start(delivery_dt - dur)
+
+        elif state in {"active", "open"}:
+            s_lo = max(window_start, window_end - dur * 2)
+            s_hi = window_end - timedelta(hours=2)
+            start_dt = _snap_shift_start(_random_between(s_lo, s_hi))
+            delivery_dt = start_dt + dur
+
+        else:
+            start_dt = _snap_shift_start(
+                window_end + timedelta(hours=random.randint(1, 720))
+            )
+            delivery_dt = start_dt + dur
+
+        created_hi = _clamp_dt(start_dt - timedelta(hours=1), window_start, window_end)
+        created_dt = (
+            window_start
+            if created_hi <= window_start
+            else _random_between(window_start, created_hi)
+        )
+
+        stamp_dt = _clamp_dt(
+            _random_between(created_dt + timedelta(minutes=1), start_dt),
+            window_start,
+            window_end,
+        )
+
+        aps_s = start_dt + timedelta(seconds=random.randint(-3600, 3600))
+        aps_e = delivery_dt + timedelta(seconds=random.randint(-3600, 3600))
+        if aps_e < aps_s:
+            aps_e = aps_s + timedelta(hours=1)
+
+        wp = workplan_by_part_no.get(pn)
+
+        payload = {
+            "workorder_no": f"WO-{random.randint(100000, 999999)}",
+            "workorder_type": random.choice(["P", "R", "T"]),
+            "part_number": pn,
+            "workorder_qty": qty,
+            "startdate": _dt_str(start_dt),
+            "deliverydate": _dt_str(delivery_dt),
+            "unit": random.choice(["EA", "PCS"]),
+            "bom_version": "1",
+            "workplan_type": random.choice(["SMT", "MIX", "THT"]),
+            "backflush": "",  # <- correction
+            "source": 1,
+            "workplan_version": "1",
+            "workorder_desc": f"{pn} production batch",
+            "bom_info": None,
+            "workplan_valid_from": _dt_str(window_start - timedelta(days=60)),
+            "workorder_no_ext": f"EXT-{random.randint(100000, 999999)}",
+            "info1": None,
+            "info2": None,
+            "info3": None,
+            "info4": None,
+            "info5": None,
+            "ninfo1": None,
+            "ninfo2": None,
+            "status": "R",
+            "created": _dt_str(created_dt),
+            "stamp": _dt_str(stamp_dt),
+            "site_id": site_ids[i % len(site_ids)],
+            "client_id": client_ids[i % len(client_ids)],
+            "company_id": cid,
+            "drawing_no": f"DWG-{pn}-R1",
+            "workorder_state": state[0].upper() if state else "A",
+            "parent_workorder": None,
+            "controller": "SAP",
+            "bareboard_no": f"BB-{random.randint(100000, 999999)}",
+            "aps_planning_start_date": _dt_str(aps_s),
+            "aps_planning_stamp": _dt_str(aps_e),
+            "aps_planning_end_date": _dt_str(aps_e),
+            "aps_order_fixation": None,
+            "workplan_id": wp["id"] if wp else None,
+            "workplan_url": wp["url"] if wp else None,
+        }
+
+        r = requests.post(
+            f"{BASE_URL}/workorders/workorders/",  # <- correction endpoint
+            json=payload,
+            headers=headers,
+            timeout=30,
+            verify=False,
+        )
+
+        print("WORKORDER STATUS:", r.status_code)
+        print("WORKORDER RESPONSE:", r.text)
+
+        if r.status_code in (200, 201):
+            data = r.json()
+            wo_id = int(data["id"])
+            created_ids.append(wo_id)
+
+            ev_start = max(start_dt, window_start)
+            ev_end = min(delivery_dt, window_end)
+            if state in {"active", "open"}:
+                ev_end = max(ev_start + timedelta(hours=1), window_end)
+
+            if ev_end > ev_start and state != "planned":
+                windows[wo_id] = WOWindow(
+                    wo_id, pn, pid, cid, ev_start, ev_end, state, qty
+                )
+
+            wo_url = data.get("url") or f"{BASE_URL}/workorders/workorders/{wo_id}"
+            print(f"Created workorder id={wo_id} url={wo_url}")
+            continue
+
+        if r.status_code ==409:
+            data = _get_json_or_text(r)
+            detail = str(data.get("detail", ""))
+
+            existing_id = _extract_id_from_detail(detail)
+            
+            if existing_id is not None:
+                created_ids.append(existing_id)
+                print(f"Reusing existing workorder '{pn}' (ID {existing_id})")
+                continue
+            
+            raise RuntimeError(f"Workorder exists but ID not found for {pn}")
+
+        if r.status_code == 400:
+            data = _get_json_or_text(r)
+            print(f"Skipping workorder for {pn} because API returned 400: {data}")
+            continue
+        
+        r.raise_for_status()
+
+    print(f"  + work_orders (API): {len(created_ids)}")
+    return created_ids, windows
+
+
+def gen_active_workorders_api(
+    wo_windows: dict[int, WOWindow],
+    station_ids: list[int],
+    window_end: datetime,
+    n: int,
+    token: str,
+) -> list[dict[str, Any]]:
+    headers = _auth_headers(token)
+
+    active_wids = [
+        wid for wid, w in wo_windows.items()
+        if w.state in {"active", "open"}
+    ]
+
+    if not active_wids:
+        print("  - active_workorders: no active/open WOs")
+        return []
+
+    now = datetime.now()
+    n = min(n, len(active_wids))
+    created: list[dict[str, Any]] = []
+
+    for i in range(n):
+        wid = active_wids[i % len(active_wids)]
+
+        created_at = _clamp_dt(
+            now - timedelta(hours=random.uniform(0.5, 8)),
+            window_end - timedelta(days=1),
+            now,
+        )
+        updated_at = _clamp_dt(
+            created_at + timedelta(minutes=random.randint(5, 60)),
+            created_at,
+            now,
+        )
+
+        payload = {
+            "workorder_id": wid,
+            "station_id": station_ids[i % len(station_ids)],
+            "state": 1,
+            "process_layer": 0,
+            "created_at": created_at.astimezone().isoformat(),
+            "updated_at": updated_at.astimezone().isoformat(),
+        }
+
+        r = requests.post(
+            f"{BASE_URL}/active-workorders/active-workorders/",
+            json=payload,
+            headers=headers,
+            timeout=30,
+            verify=False,
+        )
+
+        print("ACTIVE WO STATUS:", r.status_code)
+        print("ACTIVE WO RESPONSE:", r.text)
+
+        if r.status_code in (200, 201):
+            data = r.json()
+            active_id = int(data["id"])
+            created.append({
+                "id": active_id,
+                "workorder_id": wid,
+                "url": data.get("url") or f"{BASE_URL}/active-workorders/active-workorders/{active_id}",
+            })
+            continue
+
+        if r.status_code in (400, 422):
+            data = _get_json_or_text(r)
+            print(f"Skipping active_workorder for workorder {wid}: {data}")
+            continue
+
+        if r.status_code == 409:
+            data = _get_json_or_text(r)
+            detail = str(data.get("detail", ""))
+
+            existing_id = _extract_id_from_detail(detail)
+            if existing_id is not None:
+                created.append({
+                    "id": existing_id,
+                    "workorder_id": wid,
+                    "url": f"{BASE_URL}/active-workorders/active-workorders/{existing_id}",
+                })
+                print(f"Reusing active_workorder for workorder {wid} (ID {existing_id})")
+                continue
+
+        r.raise_for_status()
+
+    print(f"  + active_workorders (API): {len(created)}")
+    return created
+# ---------------------------------------------------------------------------
+# Layer 4
+# ---------------------------------------------------------------------------
+
+
+#booking
 
 
 # ---------------------------------------------------------------------------
@@ -1566,9 +2792,9 @@ def main() -> None:
     failure_group_types_ids = gen_failure_group_types_api( n=6, token=API_TOKEN)
     print("Failure Group Types créés :", failure_group_types_ids)
     
-    machine_condition_groups_ids = gen_machine_condition_groups_api( n=3, token=API_TOKEN)
+    machine_condition_groups_ids = gen_machine_condition_groups_api(n=3,token=API_TOKEN)
     print("Machine condition groups créés :", machine_condition_groups_ids)
-
+    
     cell_ids = gen_cells_api(site_ids=site_ids, n=5, token=API_TOKEN)
     if not cell_ids:
         raise RuntimeError("Cells vides → STOP")
@@ -1579,12 +2805,9 @@ def main() -> None:
     machine_group_id_map  = seed_machine_groups_api(cell_ids=cell_ids, token=API_TOKEN)
     print("Machine Groups map :", machine_group_id_map)
     
-    station_legacy_to_api_id = seed_fixed_stations_api(
-    token=API_TOKEN,
-    machine_group_name_to_id=machine_group_name_to_id
-    )
+    station_legacy_to_api_id = seed_fixed_stations_api(token=API_TOKEN,machine_group_name_to_id=machine_group_name_to_id)
+    print("station map", station_legacy_to_api_id )
      
- 
     line_legacy_to_api_id = seed_fixed_lines_api(token=API_TOKEN, station_legacy_to_api_id=station_legacy_to_api_id)
     print("Lines créés/réutilisés", line_legacy_to_api_id) 
         
@@ -1594,8 +2817,117 @@ def main() -> None:
     )
     print("Associations valides :", valid_associations[:10])
     
+    erp_group_code_to_api_id = gen_erp_groups_api( token=API_TOKEN, window_start=window_start)
+    print("ERP group map", erp_group_code_to_api_id)
+        
+    failure_type_map = gen_failure_types_api(token=API_TOKEN, failure_group_ids=failure_group_types_ids, site_ids=site_ids)
+    print("Failure types map :", failure_type_map)
     
-    conn.commit()
+    if not machine_condition_groups_ids:
+        raise RuntimeError("Aucun machine condition group ID récupéré.")
+    
+    machine_condition_map = gen_machine_conditions_ref_api(token=API_TOKEN,machine_condition_group_ids=machine_condition_groups_ids)
+    print("Machine conditions map :", machine_condition_map)
+    
+    part_group_map = gen_part_groups_api(token=API_TOKEN, part_group_type_ids=part_group_types_ids )
+    print("Part groups map :", part_group_map)
+    
+    part_master_map, part_numbers = gen_part_master_api(
+    token=API_TOKEN,
+    part_type_ids=part_types_ids,
+    part_group_map=part_group_map,
+    machine_group_ids=list(machine_group_name_to_id.values()),
+    site_ids=site_ids,
+    unit_id=1,   # remplace par un vrai unit_id valide de ton système
+    n_products=8,
+    )
+    
+    product_part_master_ids = part_numbers[:args.n_products]
+    product_part_ids = [part_master_map[pn] for pn in product_part_master_ids]
 
+
+    erp_group_ids = list(erp_group_code_to_api_id.values())
+    station_ids = list(station_legacy_to_api_id.values())
+    
+    station_erp_assignments = gen_assign_stations_to_erpgrp_api(
+        token=API_TOKEN, station_ids=station_ids, erp_group_ids=erp_group_ids )
+    
+    print("Assignations station/ERP :", station_erp_assignments[:10])
+    
+    workplan_rows = gen_work_plans_api(
+    site_ids,
+    cl_ids,
+    cc_ids,
+    product_part_master_ids,
+    window_start,
+    window_end,
+    token=API_TOKEN)
+    
+    print ("workplan", workplan_rows)
+    
+    workplan_by_part_no = {
+    row["part_no"]: {"id": row["id"], "url": row["url"]}
+    for row in workplan_rows}
+    
+    print("workplan by part", workplan_by_part_no)
+    
+    workstep_rows = gen_work_steps_api(
+    workplan_ids = [wp["id"] for wp in workplan_rows],
+    erp_group_ids=erp_group_ids,
+    window_start=window_start,
+    token=API_TOKEN)
+    
+    print("workstep", workstep_rows)
+    
+    # 3. BOM headers
+    
+    bom_header_rows = gen_bom_headers_api(
+    product_part_master_ids,
+    window_start,
+    API_TOKEN)
+    
+    print("bom headers", bom_header_rows)
+    
+    # 4. BOM items
+    
+    gen_bom_items_api(
+    bom_header_rows,
+    part_master_map,
+    API_TOKEN)
+    
+    # 4. BOM INSERTION (🔥 clé pour ton erreur)
+    gen_bom_insertion_api(
+    product_part_master_ids,
+    API_TOKEN)
+    
+    print("bom insertion", gen_bom_insertion_api)
+    
+    work_order_ids, wo_windows = gen_work_orders_api(
+    client_ids=cl_ids,
+    company_code_ids=cc_ids,
+    site_ids=site_ids,
+    product_part_master_ids=product_part_master_ids,
+    product_part_ids=product_part_ids,
+    workplan_by_part_no=workplan_by_part_no,
+    window_start=window_start,
+    window_end=window_end,
+    n=50,
+    wo_qty_min=10,
+    wo_qty_max=100,
+    token=API_TOKEN)
+    
+    print("workorders", work_order_ids)
+    
+    active_workorder_rows = gen_active_workorders_api(
+    wo_windows=wo_windows,
+    station_ids=station_ids,
+    window_end=window_end,
+    n=20,
+    token=API_TOKEN)
+    
+    print("active workorders", active_workorder_rows)
+
+    conn.commit()
+    
 if __name__ == "__main__":
     main()
