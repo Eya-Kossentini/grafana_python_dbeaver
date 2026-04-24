@@ -2375,32 +2375,6 @@ def gen_bom_headers_api(
     return created
 
 
-            
-def gen_bom_insertion_api(
-    product_part_master_ids: list[str],
-    token: str
-):
-
-    headers = _auth_headers(token)
-
-    for pn in product_part_master_ids:
-
-        payload = {
-            "part_number": pn,
-            "bom_master_version": 1,
-            "workplan_master_version": 1,
-        }
-
-        r = requests.post(
-            f"{BASE_URL}/api/merge/bom-insertions",
-            json=payload,
-            headers=headers,
-            timeout=30,
-            verify=False,
-        )
-
-        print("BOM INSERT STATUS:", r.status_code)
-        
 def gen_bom_items_api(
     bom_header_rows: list[dict],
     component_ids: list[int],
@@ -2432,7 +2406,88 @@ def gen_bom_items_api(
 
             print("BOM ITEM STATUS:", r.status_code)
 
-        
+def gen_boms_api(
+    product_part_master_ids: list[int],
+    window_start: datetime,
+    token: str,
+) -> list[dict[str, Any]]:
+    headers = _auth_headers(token)
+    created = []
+    vf = window_start - timedelta(days=60)
+
+    for pm_id in product_part_master_ids:
+        payload = {
+            "state": "released",
+            "bom_type": random.choice(["PRODUCTION", "ENGINEERING"]),
+            "bom_version": 1,
+            "bom_version_valid_from": _d_str(vf),
+            "bom_version_valid_to": None,
+            "user_id": 1,
+            "part_number": pm_id,
+        }
+
+        r = requests.post(
+            f"{BASE_URL}/boms/bom/",
+            json=payload,
+            headers=headers,
+            timeout=30,
+            verify=False,
+        )
+
+        print("BOM STATUS:", r.status_code)
+        print("BOM RESPONSE:", r.text)
+
+        if r.status_code in (200, 201):
+            data = r.json()
+            created.append({
+                "id": int(data["id"]),
+                "part_number": pm_id,
+                "url": data.get("url") or f"{BASE_URL}/boms/bom/{data['id']}",
+            })
+            continue
+
+        if r.status_code == 409:
+            data = _get_json_or_text(r)
+            detail = str(data.get("detail", ""))
+            existing_id = _extract_id_from_detail(detail)
+
+            if existing_id is not None:
+                created.append({
+                    "id": existing_id,
+                    "part_number": pm_id,
+                    "url": f"{BASE_URL}/boms/bom/{existing_id}",
+                })
+                continue
+
+        print(f"Skipping BOM for part_master_id={pm_id}: {_get_json_or_text(r)}")
+
+    return created
+
+            
+def gen_bom_insertion_api(
+    product_part_master_ids: list[str],
+    token: str
+):
+
+    headers = _auth_headers(token)
+
+    for pn in product_part_master_ids:
+
+        payload = {
+            "part_number": pn,
+            "bom_master_version": 1,
+            "workplan_master_version": 1,
+        }
+
+        r = requests.post(
+            f"{BASE_URL}/api/merge/bom-insertions",
+            json=payload,
+            headers=headers,
+            timeout=30,
+            verify=False,
+        )
+
+        print("BOM INSERT STATUS:", r.status_code)
 # ---------------------------------------------------------------------------
 # Layer 3
 # ---------------------------------------------------------------------------
@@ -2447,6 +2502,7 @@ class WOWindow:
     event_end: datetime
     state: str
     qty: int
+
 
 
 def gen_work_orders_api(
@@ -2614,6 +2670,71 @@ def gen_work_orders_api(
     return created_ids, windows
 
 
+def gen_serial_numbers_api(
+    wo_windows: dict[int, WOWindow],
+    token: str,
+) -> dict[int, list[int]]:
+    headers = _auth_headers(token)
+    wo_snr_map: dict[int, list[int]] = {}
+
+    for wid, w in wo_windows.items():
+        target = min(max(1, w.qty), 2000)
+        snr_ids: list[int] = []
+
+        for pos in range(1, target + 1):
+            ts = _clamp_dt(
+                w.event_start + timedelta(seconds=pos * AVG_CYCLE_TIME_SEC),
+                w.event_start,
+                w.event_end,
+            )
+
+            payload = {
+                "serial_number": f"SNR-WO-{wid:06d}-{pos:05d}",
+                "serial_number_pos": pos,
+                "serial_number_ref_pos": pos,
+                "serial_number_active": "Y",
+                "serial_number_ref": f"SNR-WO-{wid:06d}-{pos:05d}",
+                "splitted": False,
+                "workorder_id": wid,
+                "part_id": w.part_id,
+                "customer_part_number": f"CUST-{w.part_id}",
+                "workorder_type": "S",
+                "serial_number_type": "S",
+                "cluster_name": "ASSEMBLY",
+                "cluster_type": "O",
+                "created_on": ts.astimezone().isoformat(),
+                "created_by": 1,
+                "company_code_id": w.company_id,
+            }
+
+            r = requests.post(
+                f"{BASE_URL}/api/serialnumbers/",
+                json=payload,
+                headers=headers,
+                timeout=30,
+                verify=False,
+            )
+
+            print("SNR STATUS:", r.status_code)
+            print("SNR RESPONSE:", r.text)
+
+            if r.status_code in (200, 201):
+                data = r.json()
+                snr_ids.append(int(data["id"]))
+                continue
+
+            if r.status_code in (400, 409, 422):
+                print(f"Skipping serial number for WO {wid}: {_get_json_or_text(r)}")
+                continue
+
+            r.raise_for_status()
+
+        wo_snr_map[wid] = snr_ids
+
+    print(f"  + serial_numbers (API): {sum(len(v) for v in wo_snr_map.values())}")
+    return wo_snr_map
+
+
 def gen_active_workorders_api(
     wo_windows: dict[int, WOWindow],
     station_ids: list[int],
@@ -2708,8 +2829,364 @@ def gen_active_workorders_api(
 # ---------------------------------------------------------------------------
 
 
-#booking
+def gen_bookings_api(
+    wo_windows: dict[int, WOWindow],
+    wo_snr_map: dict[int, list[int]],
+    station_ids: list[int],
+    failure_type_ids: list[int],
+    pass_p: float,
+    fail_p: float,
+    scrap_p: float,
+    target_bookings: int,
+    window_start: datetime,
+    window_end: datetime,
+    token: str,
+) -> list[dict[str, Any]]:
 
+    headers = _auth_headers(token)
+    created: list[dict[str, Any]] = []
+
+    eligible = {
+        wid: w for wid, w in wo_windows.items()
+        if w.state in {"open", "active", "finished", "delivered"}
+    }
+
+    if not eligible:
+        print("  - bookings: no eligible work orders")
+        return []
+
+    wo_list = list(eligible.values())
+
+    wo_wins: dict[int, list[tuple[datetime, datetime]]] = {
+        w.workorder_id: _shift_windows(w.event_start, w.event_end)
+        for w in wo_list
+    }
+
+    def _state_for(wo_state: str) -> str:
+        bp = min(1.0, pass_p + (0.05 if wo_state in {"delivered", "finished"} else 0))
+        r = random.random()
+        if r < bp:
+            return "pass"
+        if r < bp + fail_p:
+            return "fail"
+        return "scrap"
+
+    n_stations = len(station_ids)
+    n_fail_types = len(failure_type_ids)
+    n_meas = len(MEASUREMENT_CATALOG)
+
+    print(f"  Generating {target_bookings:,} bookings via API...")
+
+    for i in range(target_bookings):
+        w = random.choices(wo_list, weights=[w.qty for w in wo_list], k=1)[0]
+        wins = wo_wins[w.workorder_id]
+
+        if wins:
+            seg = random.choice(wins)
+            ts = _random_between(seg[0], seg[1])
+        else:
+            ts = _random_between(w.event_start, w.event_end)
+
+        st = _state_for(w.state)
+
+        failed_id = None
+        if st in {"fail", "scrap"} and failure_type_ids:
+            failed_id = failure_type_ids[random.randint(0, n_fail_types - 1)]
+
+        updated_at = _clamp_dt(
+            ts + timedelta(seconds=random.randint(0, 300)),
+            ts,
+            datetime.now(),
+        )
+
+        rct = max(30.0, random.gauss(AVG_CYCLE_TIME_SEC, 30.0))
+
+        snr_ids = wo_snr_map.get(w.workorder_id, [])
+        snr_id = snr_ids[random.randint(0, len(snr_ids) - 1)] if snr_ids else None
+
+        payload = {
+            "workorder_id": w.workorder_id,
+            "station_id": station_ids[i % n_stations],
+            "failed_id": failed_id,
+            "serial_number_id": snr_id,
+            "process_layer": random.randint(0, 3),
+            "date_of_booking": ts.astimezone().isoformat(),
+            "state": st,
+            "mesure_id": None,
+            "real_cycle_time": round(rct, 3),
+            "type": "SNR" if snr_id else "batch",
+            "snr_booking": bool(snr_id),
+            "booked_by": "Admin",
+            "created_at": ts.astimezone().isoformat(),
+            "updated_at": updated_at.astimezone().isoformat(),
+        }
+
+        r = requests.post(
+            f"{BASE_URL}/bookings/bookings/",
+            json=payload,
+            headers=headers,
+            timeout=30,
+            verify=False,
+        )
+
+        print("BOOKING STATUS:", r.status_code)
+        print("BOOKING RESPONSE:", r.text)
+
+        if r.status_code in (200, 201):
+            data = r.json()
+            booking_id = int(data["id"])
+            created.append({
+                "id": booking_id,
+                "workorder_id": w.workorder_id,
+                "url": data.get("url") or f"{BASE_URL}/bookings/bookings/{booking_id}",
+            })
+            continue
+
+        if r.status_code in (400, 422):
+            data = _get_json_or_text(r)
+            print(f"Skipping booking for WO {w.workorder_id}: {data}")
+            continue
+
+        if r.status_code == 409:
+            data = _get_json_or_text(r)
+            detail = str(data.get("detail", ""))
+            existing_id = _extract_id_from_detail(detail)
+
+            if existing_id is not None:
+                created.append({
+                    "id": existing_id,
+                    "workorder_id": w.workorder_id,
+                    "url": f"{BASE_URL}/bookings/bookings/{existing_id}",
+                })
+                print(f"Reusing booking for WO {w.workorder_id} (ID {existing_id})")
+                continue
+
+        r.raise_for_status()
+
+        if len(created) % 100 == 0 and created:
+            print(f"    ... {len(created):,} bookings created")
+
+    print(f"  + bookings (API): {len(created):,}")
+    return created
+
+def gen_measurement_data_api(
+    wo_windows: dict[int, WOWindow],
+    station_ids: list[int],
+    n: int,
+    token: str,
+) -> list[dict[str, Any]]:
+
+    headers = _auth_headers(token)
+    created = []
+    eligible = list(wo_windows.values())
+
+    if not eligible:
+        print("  - measurement_data: no eligible work orders")
+        return []
+
+    for i in range(n):
+        w = random.choice(eligible)
+        wins = _shift_windows(w.event_start, w.event_end)
+
+        ts = (
+            _random_between(*random.choice(wins))
+            if wins else _random_between(w.event_start, w.event_end)
+        )
+
+        m = random.choice(MEASUREMENT_CATALOG)
+        lo, hi = float(m["lower_limit"]), float(m["upper_limit"])
+
+        val = round(
+            random.uniform(lo, hi)
+            if random.random() < 0.95
+            else random.choice([
+                random.uniform(lo * 0.85, lo),
+                random.uniform(hi, hi * 1.15),
+            ]),
+            4,
+        )
+
+        fin = ts + timedelta(seconds=random.choice([1.0, 2.0, 3.0]))
+
+        payload = {
+            "STATION_ID": station_ids[i % len(station_ids)],
+            "WORKORDER_ID": w.workorder_id,
+            "BOOK_DATE": ts.isoformat(),
+            "MEASURE_NAME": m["measure_name"],
+            "MEASURE_VALUE": str(val),
+            "LOWER_LIMIT": str(lo),
+            "UPPER_LIMIT": str(hi),
+            "NOMINAL": str(float(m["nominal"])),
+            "TOLERANCE": str(float(m["tolerance"])),
+            "MEASURE_FAIL_CODE": 0,
+            "MEASURE_TYPE": m["measure_type"],
+            "created_at": ts.isoformat(),
+            "updated_at": fin.isoformat(),
+        }
+
+        r = requests.post(
+            f"{BASE_URL}/measurement-data/measurement-data/",
+            json=payload,
+            headers=headers,
+            timeout=30,
+            verify=False,
+        )
+
+        print("MEASUREMENT STATUS:", r.status_code)
+        print("MEASUREMENT RESPONSE:", r.text)
+
+        if r.status_code in (200, 201):
+            data = r.json()
+            mid = data.get("ID") or data.get("id")
+            created.append({
+                "id": mid,
+                "workorder_id": w.workorder_id,
+                "url": data.get("url") or f"{BASE_URL}/measurement-data/measurement-data/{mid}",
+            })
+            continue
+
+        if r.status_code in (400, 409, 422):
+            print(f"Skipping measurement for WO {w.workorder_id}: {_get_json_or_text(r)}")
+            continue
+
+        r.raise_for_status()
+
+    print(f"  + measurement_data (API): {len(created)}")
+    return created
+
+def gen_machine_condition_data_api(
+    station_ids: list[int],
+    machine_condition_ids: list[int],
+    window_start: datetime,
+    window_end: datetime,
+    n_max: int,
+    downtime_target: float,
+    run_min_h: float,
+    run_max_h: float,
+    down_min_h: float,
+    down_max_h: float,
+    token: str,
+) -> list[dict[str, Any]]:
+
+    headers = _auth_headers(token)
+    created = []
+
+    run_min_s = run_min_h * 3600.0
+    run_max_s = run_max_h * 3600.0
+    down_min_s = down_min_h * 3600.0
+    down_max_s = down_max_h * 3600.0
+
+    running_mc_id = machine_condition_ids[-1]
+    non_running_ids = machine_condition_ids[:-1]
+
+    if not station_ids or not machine_condition_ids:
+        print("  - machine_condition_data: missing station_ids or machine_condition_ids")
+        return []
+
+    produced = 0
+    total_run = 0.0
+    total_down = 0.0
+
+    per_station_max = max(50, n_max // max(1, len(station_ids)))
+
+    for station_id in station_ids:
+        tot_s = (window_end - window_start).total_seconds()
+        run_left = tot_s * (1.0 - downtime_target)
+        down_left = tot_s * downtime_target
+
+        station_produced = 0
+
+        for sw_start, sw_end in _shift_windows(window_start, window_end):
+            if station_produced >= per_station_max or produced >= n_max:
+                break
+
+            t = sw_start
+
+            while t < sw_end and station_produced < per_station_max and produced < n_max:
+                rem = (sw_end - t).total_seconds()
+                if rem <= 0:
+                    break
+
+                is_down = (
+                    random.random() < (down_left / max(1, down_left + run_left))
+                    if down_left > 0 and run_left > 0
+                    else down_left > 0
+                )
+
+                if is_down:
+                    dur = min(rem, down_left, random.uniform(down_min_s, down_max_s))
+                    mc_id = random.choice(non_running_ids)
+                else:
+                    dur = min(rem, run_left, random.uniform(run_min_s, run_max_s))
+                    mc_id = running_mc_id
+
+                s_dt = t
+                e_dt = _clamp_dt(
+                    s_dt + timedelta(seconds=float(dur)),
+                    sw_start,
+                    sw_end,
+                )
+
+                if e_dt <= s_dt:
+                    t = sw_end
+                    continue
+
+                seg = (e_dt - s_dt).total_seconds()
+                if is_down:
+                    down_left -= seg
+                    total_down += seg
+                else:
+                    run_left -= seg
+                    total_run += seg
+
+                payload = {
+                    "date_from": s_dt.isoformat(),
+                    "date_to": e_dt.isoformat(),
+                    "station_id": int(station_id),
+                    "condition_id": mc_id,
+                    "level": "A" if is_down else "P",
+                    "condition_stamp": e_dt.isoformat(),
+                    "condition_type": "s",
+                    "color_rgb": "#8b1818" if is_down else "#13be1e",
+                    "updated_at": e_dt.isoformat(),
+                    "condition_created": s_dt.isoformat()
+                }
+
+                r = requests.post(
+                    f"{BASE_URL}/machine-condition-data/machine-condition-data/",
+                    json=payload,
+                    headers=headers,
+                    timeout=30,
+                    verify=False,
+                )
+
+                print("MACHINE CONDITION DATA STATUS:", r.status_code)
+                print("MACHINE CONDITION DATA RESPONSE:", r.text)
+
+                if r.status_code in (200, 201):
+                    data = r.json()
+                    cid = data.get("id")
+                    created.append({
+                        "id": cid,
+                        "station_id": station_id,
+                        "url": data.get("url") or f"{BASE_URL}/machine-condition-data/machine-condition-data/{cid}",
+                    })
+                elif r.status_code in (400, 409, 422):
+                    print(f"Skipping machine_condition_data for station {station_id}: {_get_json_or_text(r)}")
+                else:
+                    r.raise_for_status()
+
+                produced += 1
+                station_produced += 1
+                t = e_dt
+
+    total = total_run + total_down
+    print(f"  + machine_condition_data (API): {len(created)}")
+
+    if total > 0:
+        print(f"    downtime: {total_down / total * 100:.1f}%  (target {downtime_target * 100:.0f}%)")
+
+    return created
 
 # ---------------------------------------------------------------------------
 # main
@@ -2842,10 +3319,10 @@ def main() -> None:
     n_products=8,
     )
     
-    product_part_master_ids = part_numbers[:args.n_products]
-    product_part_ids = [part_master_map[pn] for pn in product_part_master_ids]
-
-
+    product_part_numbers = part_numbers[:args.n_products]
+    product_part_master_ids = [part_master_map[pn] for pn in product_part_numbers]
+    product_part_ids = product_part_master_ids
+    
     erp_group_ids = list(erp_group_code_to_api_id.values())
     station_ids = list(station_legacy_to_api_id.values())
     
@@ -2858,7 +3335,7 @@ def main() -> None:
     site_ids,
     cl_ids,
     cc_ids,
-    product_part_master_ids,
+    product_part_numbers,
     window_start,
     window_end,
     token=API_TOKEN)
@@ -2878,6 +3355,7 @@ def main() -> None:
     token=API_TOKEN)
     
     print("workstep", workstep_rows)
+
     
     # 3. BOM headers
     
@@ -2888,25 +3366,35 @@ def main() -> None:
     
     print("bom headers", bom_header_rows)
     
+    component_ids = [
+    pm_id for pn, pm_id in part_master_map.items()
+    if pn not in product_part_numbers]
+    
     # 4. BOM items
     
     gen_bom_items_api(
     bom_header_rows,
-    part_master_map,
+    component_ids,
     API_TOKEN)
     
-    # 4. BOM INSERTION (🔥 clé pour ton erreur)
+    #bom_rows = gen_boms_api(
+    #product_part_master_ids,
+    #window_start,
+    #API_TOKEN)
+    
+    #print("boms", bom_rows)
+    
     gen_bom_insertion_api(
     product_part_master_ids,
     API_TOKEN)
     
-    print("bom insertion", gen_bom_insertion_api)
+    print("bom insertion")
     
     work_order_ids, wo_windows = gen_work_orders_api(
     client_ids=cl_ids,
     company_code_ids=cc_ids,
     site_ids=site_ids,
-    product_part_master_ids=product_part_master_ids,
+    product_part_master_ids=product_part_numbers,
     product_part_ids=product_part_ids,
     workplan_by_part_no=workplan_by_part_no,
     window_start=window_start,
@@ -2918,6 +3406,16 @@ def main() -> None:
     
     print("workorders", work_order_ids)
     
+    if not wo_windows:
+        print("No workorders created → skipping serial_numbers, active_workorders and bookings")
+        return
+
+    wo_snr_map = gen_serial_numbers_api(
+    wo_windows=wo_windows,
+    token=API_TOKEN)
+    
+    print("serial numbers", wo_snr_map)
+    
     active_workorder_rows = gen_active_workorders_api(
     wo_windows=wo_windows,
     station_ids=station_ids,
@@ -2926,6 +3424,45 @@ def main() -> None:
     token=API_TOKEN)
     
     print("active workorders", active_workorder_rows)
+    
+    
+    booking_rows = gen_bookings_api(
+    wo_windows=wo_windows,
+    wo_snr_map=wo_snr_map,
+    station_ids=station_ids,
+    failure_type_ids=list(failure_type_map.values()) if isinstance(failure_type_map, dict) else failure_type_map,
+    pass_p=0.90,
+    fail_p=0.08,
+    scrap_p=0.02,
+    target_bookings=100,
+    window_start=window_start,
+    window_end=window_end,
+    token=API_TOKEN)
+    
+    print("bookings", booking_rows)
+    
+    measurement_rows = gen_measurement_data_api(
+    wo_windows=wo_windows,
+    station_ids=station_ids,
+    n=200,
+    token=API_TOKEN)
+    
+    print("measurement data", measurement_rows)
+    
+    machine_condition_rows = gen_machine_condition_data_api(
+    station_ids=station_ids,
+    machine_condition_ids=list(machine_condition_map.values()),
+    window_start=window_start,
+    window_end=window_end,
+    n_max=200,
+    downtime_target=0.20,
+    run_min_h=1,
+    run_max_h=4,
+    down_min_h=0.2,
+    down_max_h=1,
+    token=API_TOKEN)
+    
+    print("machine condition data", machine_condition_rows)
 
     conn.commit()
     
