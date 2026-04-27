@@ -1,5 +1,6 @@
 db:
   url: "postgresql://postgres:admin123@127.0.0.1:5435/postgres"
+  #db_url: "postgresql://postgres:admin123@127.0.0.1:5435/staging_momes"
   #url: "postgresql://postgres:2025@192.168.1.4:5432/Core_Demo"
   #url: "postgresql://postgres:admin123@host.docker.internal:5435/postgres"
 

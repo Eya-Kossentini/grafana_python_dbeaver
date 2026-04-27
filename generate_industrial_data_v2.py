@@ -10,12 +10,14 @@ from typing import Any, Iterable, cast
 import psycopg2 as psycopg
 import requests
 from typing import Optional
-from admin.postgres_writer_v2 import PgConfig, PostgresWriter
+from postgres_writer_v2 import PgConfig, PostgresWriter
 from dotenv import load_dotenv
 import re
 
 BASE_URL ="https://core_demo.momes-solutions.com"
 API_TOKEN = os.getenv("API_TOKEN")
+
+POST_BASE_URL = "http://127.0.0.1:8000"
 
 import urllib3
 
@@ -336,7 +338,6 @@ machine_group_name_to_id = {
 # Exact machine groups from production DB export – covers every machine_group_id
 # referenced by STATIONS_FIXED so the FK constraint is always satisfied.
 
-# MACHINE GROUP FIXED brouillon 
 
 
 # Exact associations from line_station_association export
@@ -581,7 +582,8 @@ def gen_company_codes_api(n: int = 3, token=None, client_id: int = 1) -> list[in
             timeout=30,
             verify=False
         )
-
+      
+        
         print("STATUS:", r.status_code)
         print("RESPONSE:", r.text)
 
@@ -3187,6 +3189,40 @@ def gen_machine_condition_data_api(
         print(f"    downtime: {total_down / total * 100:.1f}%  (target {downtime_target * 100:.0f}%)")
 
     return created
+
+
+
+# ---------------------------------------------------------------------------
+# GENERATION OF DATA ON NEW BD 
+# ---------------------------------------------------------------------------
+
+
+def api_get(endpoint: str, token=None, params=None):
+    r = requests.get(
+        f"{BASE_URL.rstrip('/')}/{endpoint.lstrip('/')}",
+        headers=_auth_headers(token),
+        params=params or {},
+        timeout=30,
+        verify=False
+    )
+    r.raise_for_status()
+    return r.json()
+
+
+def api_post_newBD(endpoint: str, payload: dict, token=None):
+    r = requests.post(
+        f"{POST_BASE_URL.rstrip('/')}/{endpoint.lstrip('/')}",
+        json=payload,
+        headers=_auth_headers(token),
+        timeout=30
+    )
+
+    print("POST:", r.url)
+    print("STATUS:", r.status_code)
+    print("RESPONSE:", r.text)
+
+    r.raise_for_status()
+    return r.json()
 
 # ---------------------------------------------------------------------------
 # main
