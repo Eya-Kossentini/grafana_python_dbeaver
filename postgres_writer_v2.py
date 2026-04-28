@@ -28,11 +28,11 @@ headers = {
 class PgConfig:
     host: str = "127.0.0.1"
     port: int = 5435
-    dbname: str = "staging_momes"
+    dbname: str = "postgres"
     user: str = "postgres"
     password: str = "admin123"
-    schema: str = "staging"
-    table: str = "company_codes"
+    schema: str = "staging" 
+
 
 
 def pg_table_qualified(pg: PgConfig) -> str:
@@ -186,6 +186,50 @@ def load_and_generate_sites(writer: PostgresWriter, company_code_ids: list[int],
 # stations → machine_groups
 # lines → stations
 # ---------------------------------------------------------------------------
+
+def load_and_generate_cells(writer: PostgresWriter, site_ids: list[int], extra_n: int = 20) -> list[int]:
+    if not site_ids:
+        raise RuntimeError("site_ids est vide.")
+
+    conn = writer.connect()
+    cells_ids = []
+
+    cell_defs = [
+        ("GEN-LAB", "Generated Labelling Cell"),
+        ("GEN-SPP", "Generated Solder Paste Printing Cell"),
+        ("GEN-SMT", "Generated SMT Cell"),
+        ("GEN-AOI", "Generated AOI Cell"),
+        ("GEN-TEST", "Generated Test Cell"),
+    ]
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT COALESCE(MAX(id), 0) FROM staging.cells;")
+        max_id = int(cur.fetchone()[0])
+
+        for i in range(extra_n):
+            new_id = max_id + i + 1
+            name, desc = cell_defs[i % len(cell_defs)]
+
+            cur.execute("""
+                INSERT INTO staging.cells
+                (id, name, description, site_id, user_id, info, is_active)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO NOTHING;
+            """, (
+                new_id,
+                f"{name}-{new_id}",
+                f"{desc} {new_id}",
+                site_ids[i % len(site_ids)],
+                1,
+                "generated",
+                True
+            ))
+
+            cells_ids.append(new_id)
+
+    conn.commit()
+    print(f"✅ generated {len(cells_ids)} cells")
+    return cells_ids
 
 def load_cells(writer: PostgresWriter):
     r = requests.get(
@@ -829,15 +873,30 @@ def load_and_generate_part_number_map(
     conn = writer.connect()
     part_number_to_id = {}
 
-    pcba_fg_id = next(
-        (v for k, v in part_group_map.items() if "PCBA-FG" in k),
-        None
+    pcba_fg_id = next((v for k, v in part_group_map.items() if "PCBA-FG" in k), None)
+    comp_group_id = next(
+        (v for k, v in part_group_map.items() if any(x in k for x in ["SMD-COMP", "THT-COMP", "RAW-PCB", "CONSM"])),
+        pcba_fg_id
     )
 
     if pcba_fg_id is None:
         raise RuntimeError(f"Aucun groupe PCBA-FG trouvé. Clés disponibles: {list(part_group_map.keys())}")
 
     machine_group_id = machine_group_ids[0] if machine_group_ids else None
+
+    product_names = [
+        ("PCB-CTL-001", "Motor Controller"),
+        ("PCB-PSU-002", "Power Supply"),
+        ("PCB-COM-003", "Communication Board"),
+    ]
+
+    component_names = [
+        ("SMD-RES-001", "SMD Resistor"),
+        ("SMD-CAP-001", "SMD Capacitor"),
+        ("THT-CON-001", "THT Connector"),
+        ("RAW-PCB-001", "Raw PCB Board"),
+        ("COMP-IC-001", "Integrated Circuit"),
+    ]
 
     with conn.cursor() as cur:
         r = requests.get(
@@ -856,6 +915,9 @@ def load_and_generate_part_number_map(
         items = data if isinstance(data, list) else data.get("results", [])
 
         for item in items:
+            part_id = int(item["id"])
+            part_number = item.get("part_number")
+
             cur.execute("""
                 INSERT INTO staging.part_number_map
                 (id, part_number, description, part_type_id,
@@ -872,39 +934,74 @@ def load_and_generate_part_number_map(
                     unit_id = EXCLUDED.unit_id,
                     customer_material_number = EXCLUDED.customer_material_number;
             """, (
-                int(item["id"]),
-                item.get("part_number"),
+                part_id,
+                part_number,
                 item.get("description"),
-                item.get("part_type_id"),
-                item.get("part_group_id"),
-                item.get("machine_group_id"),
-                item.get("site_id"),
+                item.get("parttype_id") or item.get("part_type_id") or part_type_ids[0],
+                item.get("partgroup_id") or item.get("part_group_id") or pcba_fg_id,
+                item.get("machine_group_id") or machine_group_id,
+                site_ids[0],
                 item.get("unit_id") or unit_id,
                 item.get("customer_material_number"),
             ))
 
-            if item.get("part_number"):
-                part_number_to_id[item["part_number"]] = int(item["id"])
+            cur.execute("""
+                INSERT INTO staging.part_master
+                (id, part_number, description, part_status, parttype_id, partgroup_id,
+                 case_type, product, panel, variant, machine_group_id, material_info,
+                 parts_index, edit_order_based_bom, site_id, unit_id, material_code,
+                 no_of_panels, customer_material_number)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE SET
+                    part_number = EXCLUDED.part_number,
+                    description = EXCLUDED.description,
+                    part_status = EXCLUDED.part_status,
+                    parttype_id = EXCLUDED.parttype_id,
+                    partgroup_id = EXCLUDED.partgroup_id,
+                    machine_group_id = EXCLUDED.machine_group_id,
+                    site_id = EXCLUDED.site_id,
+                    unit_id = EXCLUDED.unit_id,
+                    customer_material_number = EXCLUDED.customer_material_number;
+            """, (
+                part_id,
+                part_number,
+                item.get("description"),
+                item.get("part_status") or "active",
+                item.get("parttype_id") or item.get("part_type_id") or part_type_ids[0],
+                item.get("partgroup_id") or item.get("part_group_id") or pcba_fg_id,
+                item.get("case_type"),
+                bool(item.get("product", False)),
+                bool(item.get("panel", False)),
+                bool(item.get("variant", False)),
+                item.get("machine_group_id") or machine_group_id,
+                item.get("material_info"),
+                item.get("parts_index"),
+                bool(item.get("edit_order_based_bom", False)),
+                site_ids[0],
+                item.get("unit_id") or unit_id,
+                item.get("material_code") or f"MAT-{part_number}",
+                item.get("no_of_panels") or 1,
+                item.get("customer_material_number"),
+            ))
 
-        cur.execute("SELECT COALESCE(MAX(id), 0) FROM staging.part_number_map;")
+            if part_number:
+                part_number_to_id[part_number] = part_id
+
+        cur.execute("SELECT COALESCE(MAX(id), 0) FROM staging.part_master;")
         max_id = int(cur.fetchone()[0])
 
-        product_names = [
-            ("PCB-CTL-001", "Motor Controller"),
-            ("PCB-PSU-002", "Power Supply"),
-            ("PCB-COM-003", "Communication Board"),
-        ]
-        component_names = [ ("SMD-RES-001", "SMD Resistor"), ("SMD-CAP-001", "SMD Capacitor"),
-                           ("THT-CON-001", "THT Connector"),("RAW-PCB-001", "Raw PCB Board"),
-                           ("COMP-IC-001", "Integrated Circuit"),]
-        
-        cur.execute("SELECT COALESCE(MAX(id), 0) FROM staging.part_number_map;")
-        max_id = int(cur.fetchone()[0])
+        generated_rows = []
 
-        for j, (pn, desc) in enumerate(component_names):
-            new_id = max_id + n_products + j + 1
-            part_number = f"{pn}-{new_id}"
+        for i in range(n_products):
+            new_id = max_id + len(generated_rows) + 1
+            pn, desc = product_names[i % len(product_names)]
+            generated_rows.append((new_id, f"{pn}-{new_id}", desc, pcba_fg_id, True))
 
+        for pn, desc in component_names:
+            new_id = max_id + len(generated_rows) + 1
+            generated_rows.append((new_id, f"{pn}-{new_id}", desc, comp_group_id, False))
+
+        for new_id, part_number, desc, group_id, is_product in generated_rows:
             cur.execute("""
                 INSERT INTO staging.part_number_map
                 (id, part_number, description,
@@ -924,11 +1021,51 @@ def load_and_generate_part_number_map(
                 new_id,
                 part_number,
                 desc,
-                part_type_ids[min(1, len(part_type_ids)-1)],
-                pcba_fg_id,
+                part_type_ids[0],
+                group_id,
                 machine_group_id,
                 site_ids[0],
                 unit_id,
+                None
+            ))
+
+            cur.execute("""
+                INSERT INTO staging.part_master
+                (id, part_number, description, part_status, parttype_id, partgroup_id,
+                 case_type, product, panel, variant, machine_group_id, material_info,
+                 parts_index, edit_order_based_bom, site_id, unit_id, material_code,
+                 no_of_panels, customer_material_number)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE SET
+                    part_number = EXCLUDED.part_number,
+                    description = EXCLUDED.description,
+                    part_status = EXCLUDED.part_status,
+                    parttype_id = EXCLUDED.parttype_id,
+                    partgroup_id = EXCLUDED.partgroup_id,
+                    product = EXCLUDED.product,
+                    machine_group_id = EXCLUDED.machine_group_id,
+                    site_id = EXCLUDED.site_id,
+                    unit_id = EXCLUDED.unit_id,
+                    material_code = EXCLUDED.material_code;
+            """, (
+                new_id,
+                part_number,
+                desc,
+                "active",
+                part_type_ids[0],
+                group_id,
+                "SMT",
+                is_product,
+                False,
+                False,
+                machine_group_id,
+                "Generated material",
+                new_id,
+                False,
+                site_ids[0],
+                unit_id,
+                f"MAT-{part_number}",
+                1,
                 None
             ))
 
@@ -936,8 +1073,8 @@ def load_and_generate_part_number_map(
 
     conn.commit()
 
-    print(f"✅ copied {len(items)} part_number_map")
-    print(f"✅ generated {n_products} part_number_map")
+    print(f"✅ copied {len(items)} part_master/part_number_map")
+    print(f"✅ generated {len(generated_rows)} part_master/part_number_map")
 
     return part_number_to_id
 
@@ -1162,7 +1299,7 @@ def load_and_generate_failure_types(
                 failure_type_id,
                 item.get("failure_type_code"),
                 item.get("failure_type_desc"),
-                item.get("site_id"),
+                site_ids[0],
                 item.get("failure_group_id"),
                 item.get("created_at") or datetime.now(),
                 item.get("updated_at") or datetime.now()
@@ -1669,7 +1806,7 @@ def load_and_generate_workplans(
                 item.get("version"),
                 bool(item.get("is_current", True)),
                 item.get("user_id") or 1,
-                item.get("site_id"),
+                site_ids[0],
                 item.get("client_id"),
                 item.get("company_id"),
                 item.get("source"),
@@ -2014,7 +2151,6 @@ def load_and_generate_bom_headers(
     conn.commit()
     return rows
 
-
 def load_and_generate_bom_items(
     writer: PostgresWriter,
     bom_header_ids: list[int],
@@ -2025,9 +2161,9 @@ def load_and_generate_bom_items(
 
     with conn.cursor() as cur:
         cur.execute("SELECT id FROM staging.part_master ORDER BY id;")
-        valid_component_ids = [int(row[0]) for row in cur.fetchall()]
+        valid_part_master_ids = [int(row[0]) for row in cur.fetchall()]
 
-        if not valid_component_ids:
+        if not valid_part_master_ids:
             raise RuntimeError("Aucun composant trouvé dans staging.part_master.")
 
         cur.execute("SELECT id FROM staging.bom_headers ORDER BY id;")
@@ -2049,7 +2185,7 @@ def load_and_generate_bom_items(
                 """, (
                     new_id,
                     bh_id,
-                    random.choice(valid_component_ids),
+                    random.choice(valid_part_master_ids),
                     random.randint(1, 10),
                     False,
                     f"Component-{new_id}",
@@ -2061,7 +2197,6 @@ def load_and_generate_bom_items(
     conn.commit()
     print("✅ bom_items generated")
 
-  
 # ---------------------------------------------------------------------------
 # Execution 
 #gen_work_orders_api
@@ -2139,7 +2274,7 @@ def load_and_generate_work_orders(
                 item.get("workorder_desc") or f"Work order {item['id']}",
                 item.get("workplan_valid_from"),
                 item.get("status") or "R",
-                item.get("site_id") or site_ids[0],
+                site_ids[0],
                 item.get("client_id") or client_ids[0],
                 item.get("company_id") or company_code_ids[0],
                 item.get("workorder_state") or "active",
@@ -2702,7 +2837,7 @@ if __name__ == "__main__":
         company_code_ids = load_and_generate_company_codes(writer)
         client_ids = load_and_generate_clients(writer, company_code_ids)
         site_ids = load_and_generate_sites(writer, company_code_ids, extra_n=5)
-        cells_ids = load_cells(writer)
+        cells_ids = load_and_generate_cells(writer, site_ids, extra_n=20)
         machine_group_ids = load_and_generate_machine_groups(writer, extra_n=30)
         station_legacy_to_api_id = load_and_generate_stations(writer, extra_n=20)
         line_legacy_to_api_id = load_and_generate_lines(
