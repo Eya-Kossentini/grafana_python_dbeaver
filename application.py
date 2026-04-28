@@ -21,6 +21,30 @@ from admin.machine_assets.machine_setup.dashboard_overview.endpoints import dash
 from admin.machine_assets.machine_setup.availability.repositories.availability_repository import KPIAvailabilityRepository
 from admin.machine_assets.machine_setup.availability.services.availability_services import KPIAvailabilityService
 
+from admin.machine_assets.machine_setup.generations.bookings.endpoint.bookings_endpoint import router as bookings_router
+from admin.machine_assets.machine_setup.generations.company_codes.company_code_endpoint import router as company_codes_router
+from admin.machine_assets.machine_setup.generations.clients.client_endpoint import router as client_router
+from admin.machine_assets.machine_setup.generations.sites.sites_endpoint import router as site_router
+from admin.machine_assets.machine_setup.generations.cells.cells_endpoint import router as cells_router
+from admin.machine_assets.machine_setup.generations.machine.machine_groups_endpoint import router as machine_groups_router
+from admin.machine_assets.machine_setup.generations.stations.station_endpoint import router as stations_router
+from admin.machine_assets.machine_setup.generations.lines.lines_endpoint import router as lines_router
+from admin.machine_assets.machine_setup.generations.lines.line_station_endpoint import router as line_station_router
+from admin.machine_assets.machine_setup.generations.part.part_type_endpoint import router as part_type_router
+from admin.machine_assets.machine_setup.generations.part.part_group_types_endpoint import router as part_group_type_router
+from admin.machine_assets.machine_setup.generations.part.part_groups_endpoint import router as part_groups_router
+from admin.machine_assets.machine_setup.generations.part.part_master_endpoint import router as part_master_router
+from admin.machine_assets.machine_setup.generations.failure.failure_group_types_endpoint  import router as failure_group_types_router
+from admin.machine_assets.machine_setup.generations.failure.failure_types_endpoint  import router as failure_types_router
+from admin.machine_assets.machine_setup.generations.machine.machine_conditions_groups_endpoint import router as machine_condition_groups_router
+from admin.machine_assets.machine_setup.generations.machine.machine_conditions_endpoint import router as machine_conditions_router
+from admin.machine_assets.machine_setup.generations.erp_group.erp_group_endpoint import router as erp_groups_router
+from admin.machine_assets.machine_setup.generations.erp_group.assign_stations_to_erpgrp_endpoint import router as assign_stations_to_erpgrp_router
+from admin.machine_assets.machine_setup.generations.workplans.workplans_endpoint import router as workplans_router
+from admin.machine_assets.machine_setup.generations.worksteps.worksteps_endpoint import router as worksteps_router
+from admin.machine_assets.machine_setup.generations.workplans.workplan_type_endpoint import router as workplan_type_router
+
+
 from containers import Container
 
 app = FastAPI(title="Availability KPI API")
@@ -72,7 +96,27 @@ def create_app() -> FastAPI:
     app.include_router(failure_loss_diagnostic_endpoint.router)
     app.include_router(scrap_by_day_endpoint.router)
     app.include_router(dashboard_overview_endpoint.router)
-   
+    app.include_router(bookings_router)
+    app.include_router(company_codes_router)
+    app.include_router(client_router)
+    app.include_router(site_router)
+    app.include_router(cells_router)
+    app.include_router(machine_groups_router)
+    app.include_router(stations_router)
+    app.include_router(lines_router)
+    app.include_router(line_station_router)
+    app.include_router(part_type_router)
+    app.include_router(part_group_type_router)
+    app.include_router(part_groups_router)
+    app.include_router(part_master_router)
+    app.include_router(failure_types_router)
+    app.include_router(machine_condition_groups_router)
+    app.include_router(machine_conditions_router)
+    app.include_router(erp_groups_router)
+    app.include_router(assign_stations_to_erpgrp_router)
+    app.include_router(workplans_router)
+    app.include_router(worksteps_router)
+    app.include_router(workplan_type_router)
     return app
 
 

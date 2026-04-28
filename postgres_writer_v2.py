@@ -2923,7 +2923,7 @@ if __name__ == "__main__":
                                                   station_ids=list(station_legacy_to_api_id.values()),
                                                   failure_type_ids=list(failure_type_map.values()),
                                                   pass_p=0.85, fail_p=0.10, scrap_p=0.05, target_bookings=500)
-        
+       
         measurement_rows = load_and_generate_measurement_data(writer,windows=windows, station_ids=list(station_legacy_to_api_id.values()), n=500)
         
         machine_condition_data_rows = load_and_generate_machine_condition_data(writer,
@@ -2938,5 +2938,6 @@ if __name__ == "__main__":
                                                                                down_min_h=0.1,
                                                                                down_max_h=1
                                                                                )
+        
     finally:
         writer.close()
