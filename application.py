@@ -43,6 +43,14 @@ from admin.machine_assets.machine_setup.generations.erp_group.assign_stations_to
 from admin.machine_assets.machine_setup.generations.workplans.workplans_endpoint import router as workplans_router
 from admin.machine_assets.machine_setup.generations.worksteps.worksteps_endpoint import router as worksteps_router
 from admin.machine_assets.machine_setup.generations.workplans.workplan_type_endpoint import router as workplan_type_router
+from admin.machine_assets.machine_setup.generations.boms.bom_items_endpoint import router as bom_items_router
+from admin.machine_assets.machine_setup.generations.boms.bom_headers_endpoint import router as bom_headers_router
+from admin.machine_assets.machine_setup.generations.workorders.workorders_endpoint import router as workorders_router
+from admin.machine_assets.machine_setup.generations.workorders.active_workorders_endpoint import router as active_workorders_router
+from admin.machine_assets.machine_setup.generations.serial_numbers.serial_numbers_endpoint import router as serial_number_router
+from admin.machine_assets.machine_setup.generations.measurement_data.measurement_data_endpoint import router as measurement_data_router
+from admin.machine_assets.machine_setup.generations.machine.machine_condition_data_endpoint import router as machine_condition_data_router
+from admin.machine_assets.machine_setup.generations.part.part_number_map_endpoint import router as part_number_map_router
 
 
 from containers import Container
@@ -117,6 +125,14 @@ def create_app() -> FastAPI:
     app.include_router(workplans_router)
     app.include_router(worksteps_router)
     app.include_router(workplan_type_router)
+    app.include_router(bom_headers_router)
+    app.include_router(bom_items_router)
+    app.include_router(workorders_router)
+    app.include_router(active_workorders_router)
+    app.include_router(serial_number_router)
+    app.include_router(measurement_data_router)
+    app.include_router(machine_condition_data_router)
+    app.include_router(part_number_map_router)
     return app
 
 
