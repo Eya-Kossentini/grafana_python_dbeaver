@@ -15,8 +15,8 @@ def get_connection():
     )
     
 router = APIRouter(
-    prefix="/machine_conditions ",
-    tags=["machine_conditions "]
+    prefix="/machine_conditions",
+    tags=["machine_conditions"]
 )
 
 class MachineConditionsCreate(BaseModel):
@@ -30,10 +30,10 @@ class MachineConditionsCreate(BaseModel):
     updated_at: Optional[datetime] = None
 
 
-@router.post("/machine_conditions /")
+@router.post("/machine_conditions/")
 def create_machine_conditions (payload: MachineConditionsCreate):
     return {
-        "message": "machine_conditions  received",
+        "message": "machine_conditions received",
         "data": payload
     }
     
@@ -41,7 +41,7 @@ def create_machine_conditions (payload: MachineConditionsCreate):
 
 
 # ✅ GET depuis PostgreSQL
-@router.get("/machine_conditions /")
+@router.get("/machine_conditions/")
 def get_machine_conditions ():
     conn = get_connection()
 

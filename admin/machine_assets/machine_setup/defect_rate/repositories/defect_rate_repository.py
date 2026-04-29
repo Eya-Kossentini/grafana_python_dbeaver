@@ -8,7 +8,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class KPIDefectRateRepository:
-    BOOKINGS_API_URL = "https://core_demo.momes-solutions.com/bookings/bookings/"
+    BOOKINGS_API_URL = "http://127.0.0.1:8000/bookings/bookings/"
 
     def get_bookings(
         self,

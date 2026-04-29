@@ -1,4 +1,3 @@
-"""
 from typing import Optional, List, Dict, Any
 from fastapi import HTTPException
 import requests
@@ -9,9 +8,9 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class KPIOeeRepository:
     
-    MACHINE_CONDITION_DATA_URL= "https://core_demo.momes-solutions.com/machine-condition-data/machine-condition-data/"
+    MACHINE_CONDITION_DATA_URL= "http://127.0.0.1:8000/machine_condition_data/machine_condition_data/"
     
-    BOOKING_URL= "https://core_demo.momes-solutions.com/bookings/bookings/"
+    BOOKING_URL= "http://127.0.0.1:8000/bookings/bookings/"
    
     def __init__(self) -> None:
         self.machine_condition_data_url = self.MACHINE_CONDITION_DATA_URL
@@ -113,4 +112,3 @@ class KPIOeeRepository:
             raise HTTPException(status_code=500, detail="Bookings API did not return valid JSON")
 
         return self._extract_list_data(data, "bookings")
-"""

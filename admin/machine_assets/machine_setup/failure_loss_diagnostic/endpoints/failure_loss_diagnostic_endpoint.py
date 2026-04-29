@@ -28,8 +28,8 @@ router = APIRouter(
 
 
 def build_failure_loss_diagnostic_service() -> KPIFailureLossDiagnosticService:
-    bookings_url = "https://core_demo.momes-solutions.com/bookings/bookings/"
-    machine_condition_data_url = "https://core_demo.momes-solutions.com/machine-condition-data/machine-condition-data/"
+    bookings_url = "http://127.0.0.1:8000/bookings/bookings/"
+    machine_condition_data_url = "http://127.0.0.1:8000/machine_condition_data/machine_condition_data/"
 
     diagnostic_repository = KPIFailureLossDiagnosticRepository(
         bookings_url=bookings_url,

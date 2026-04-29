@@ -20,7 +20,7 @@ router = APIRouter(
 
 
 def build_scrap_by_day_service() -> KPIScrapByDayService:
-    bookings_url = "https://core_demo.momes-solutions.com/bookings/bookings/"
+    bookings_url = "http://127.0.0.1:8000/bookings/bookings/"
     repository = KPIScrapByDayRepository(bookings_url=bookings_url)
     return KPIScrapByDayService(scrap_by_day_repository=repository)
 

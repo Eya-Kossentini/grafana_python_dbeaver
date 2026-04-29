@@ -21,8 +21,8 @@ router = APIRouter(
 
 
 def build_downtime_service() -> KPIDowntimeService:
-    machine_conditions_url = "https://core_demo.momes-solutions.com/machine-conditions/machine-conditions/"
-    machine_condition_data_url = "https://core_demo.momes-solutions.com/machine-condition-data/machine-condition-data/"
+    machine_conditions_url = "http://127.0.0.1:8000/machine_conditions/machine_conditions/"
+    machine_condition_data_url = "http://127.0.0.1:8000/machine_condition_data/machine_condition_data/"
 
     repository = KPIDowntimeRepository(
         machine_conditions_url=machine_conditions_url,

@@ -8,8 +8,8 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class KPIAvailabilityRepository:
     
-    MACHINE_CONDITION_DATA_URL= "https://core_demo.momes-solutions.com/machine-condition-data/machine-condition-data/"
-    MACHINE_CONDITIONS_URL= "https://core_demo.momes-solutions.com/machine-conditions/machine-conditions/"
+    MACHINE_CONDITION_DATA_URL= "http://127.0.0.1:8000/machine_condition_data/machine_condition_data/"
+    MACHINE_CONDITIONS_URL= "http://127.0.0.1:8000/machine_conditions/machine_conditions/"
     
     def __init__(self) -> None:
         self.machine_condition_data_url = self.MACHINE_CONDITION_DATA_URL

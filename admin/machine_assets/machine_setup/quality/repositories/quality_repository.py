@@ -8,7 +8,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class KPIQualityRepository:
     
-    BOOKING_URL= "https://core_demo.momes-solutions.com/bookings/bookings/"
+    BOOKING_URL= "http://127.0.0.1:8000/bookings/bookings/"
    
     def __init__(self) -> None:
         self.bookings_url = self.BOOKING_URL

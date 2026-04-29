@@ -20,8 +20,8 @@ router = APIRouter(
 
 
 def build_pareto_losses_service() -> KPIParetoLossesService:
-    machine_condition_data_url = "https://core_demo.momes-solutions.com/machine-condition-data/machine-condition-data/"
-    bookings_url = "https://core_demo.momes-solutions.com/bookings/bookings/"
+    machine_condition_data_url = "http://127.0.0.1:8000/machine_condition_data/machine_condition_data/"
+    bookings_url = "http://127.0.0.1:8000/bookings/bookings/"
 
     repository = KPIParetoLossesRepository(
         machine_condition_data_url=machine_condition_data_url,

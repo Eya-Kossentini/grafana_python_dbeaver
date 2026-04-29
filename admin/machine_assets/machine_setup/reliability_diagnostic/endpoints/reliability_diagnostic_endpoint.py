@@ -24,8 +24,8 @@ router = APIRouter(
 
 
 def build_reliability_diagnostic_service() -> KPIReliabilityDiagnosticService:
-    machine_condition_data_url = "https://core_demo.momes-solutions.com/machine-condition-data/machine-condition-data/"
-    bookings_url = "https://core_demo.momes-solutions.com/bookings/bookings/"
+    machine_condition_data_url = "http://127.0.0.1:8000/machine_condition_data/machine_condition_data/"
+    bookings_url = "http://127.0.0.1:8000/bookings/bookings/"
 
     mtbf_repository = KPIMTBFRepository(
         machine_condition_data_url=machine_condition_data_url

@@ -14,7 +14,7 @@ router = APIRouter(
 
 
 def build_mtbf_service() -> KPIMTBFService:
-    machine_condition_data_url = "https://core_demo.momes-solutions.com/machine-condition-data/machine-condition-data/"
+    machine_condition_data_url = "http://127.0.0.1:8000/machine_condition_data/machine_condition_data/"
     repository = KPIMTBFRepository(machine_condition_data_url=machine_condition_data_url)
     return KPIMTBFService(mtbf_repository=repository)
 
