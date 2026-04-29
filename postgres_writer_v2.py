@@ -2053,6 +2053,102 @@ def load_and_generate_worksteps(
 
     return created_steps
 
+def load_and_generate_workplan_types(
+    writer: PostgresWriter,
+    extra_n: int = 5
+) -> list[dict[str, Any]]:
+
+    r = requests.get(
+        f"{SOURCE_API_URL}/workplan-types/workplan-types/",  # adapte selon Swagger
+        headers=headers,
+        timeout=30,
+        verify=False
+    )
+
+    print("GET WORKPLAN TYPES STATUS:", r.status_code)
+    print("GET WORKPLAN TYPES RESPONSE:", r.text[:300])
+
+    r.raise_for_status()
+
+    data = r.json()
+    items = data if isinstance(data, list) else data.get("results", [])
+
+    conn = writer.connect()
+    workplan_types: list[dict[str, Any]] = []
+
+    with conn.cursor() as cur:
+
+        # 1) COPY API mère
+        for item in items:
+            wt_id = int(item["id"])
+
+            cur.execute("""
+                INSERT INTO staging.workplan_types
+                (id, name, description, is_active, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE SET
+                    name = EXCLUDED.name,
+                    description = EXCLUDED.description,
+                    is_active = EXCLUDED.is_active,
+                    updated_at = EXCLUDED.updated_at;
+            """, (
+                wt_id,
+                item.get("name"),
+                item.get("description"),
+                item.get("is_active", True),
+                item.get("created_at") or datetime.now(),
+                item.get("updated_at") or datetime.now()
+            ))
+
+            workplan_types.append({
+                "id": wt_id,
+                "name": item.get("name"),
+                "url": f"{SOURCE_API_URL}/workplan-types/workplan-types/{wt_id}"
+            })
+
+        # 2) GENERATE extra workplan types
+        cur.execute("SELECT COALESCE(MAX(id), 0) FROM staging.workplan_types;")
+        max_id = int(cur.fetchone()[0])
+
+        generated_types = [
+            ("SMT", "Surface Mount Technology production plan"),
+            ("THT", "Through Hole Technology production plan"),
+            ("MIX", "Mixed SMT and THT production plan"),
+            ("REWORK", "Rework production plan"),
+            ("TEST", "Testing and validation workplan"),
+        ]
+
+        for i in range(extra_n):
+            new_id = max_id + i + 1
+            name, description = generated_types[i % len(generated_types)]
+
+            cur.execute("""
+                INSERT INTO staging.workplan_types
+                (id, name, description, is_active, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO NOTHING;
+            """, (
+                new_id,
+                f"{name}-{new_id}",
+                description,
+                True,
+                datetime.now(),
+                datetime.now()
+            ))
+
+            workplan_types.append({
+                "id": new_id,
+                "name": f"{name}-{new_id}",
+                "url": f"staging.workplan_types/{new_id}"
+            })
+
+    conn.commit()
+
+    print(f"✅ copied {len(items)} workplan_types")
+    print(f"✅ generated {extra_n} extra workplan_types")
+
+    return workplan_types
+    
 def load_and_generate_bom_headers(
     writer: PostgresWriter,
     part_number_to_id: dict[str, int],
@@ -2898,6 +2994,8 @@ if __name__ == "__main__":
                                                     workplan_ids=workplan_ids,
                                                     erp_group_ids=erp_group_ids,
                                                     extra_n_per_workplan=5)
+        
+        workplan_types = load_and_generate_workplan_types(writer, extra_n=5)
         
         bom_headers = load_and_generate_bom_headers(writer, part_number_map)
 
