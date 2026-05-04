@@ -15,15 +15,15 @@ class KPIParetoLossesService:
         pareto_losses_repository: KPIParetoLossesRepository,
     ) -> None:
         self.pareto_losses_repository = pareto_losses_repository
-
+        
     def get_pareto_losses(
-        self,
-        station_id: Optional[int] = None,
-        date_from: Optional[str] = None,
-        date_to: Optional[str] = None,
-        token: Optional[str] = None,
-        only_critical: Optional[bool] = False,
-    ):
+    self,
+    station_id: Optional[int] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    token: Optional[str] = None,
+    only_critical: Optional[bool] = None, ):
+
         def normalize_day(value):
             return str(value)[:10] if value is not None else None
 
@@ -116,10 +116,13 @@ class KPIParetoLossesService:
 
                 cumulative += loss_hours
                 cumulative_pct = round((100.0 * cumulative / total_loss), 2) if total_loss > 0 else 0.0
-
+                
                 is_critical = cumulative_pct <= 80
 
-                if only_critical and not is_critical:
+                # ✅ Fix du filtre
+                if only_critical is True and not is_critical:
+                    continue
+                if only_critical is False and is_critical:
                     continue
 
                 results.append({
@@ -132,6 +135,7 @@ class KPIParetoLossesService:
                     "pareto_rank": index,
                     "is_critical": is_critical,
                 })
+                
 
         results.sort(
             key=lambda x: (x["production_day"], x["station_id"], x["pareto_rank"])

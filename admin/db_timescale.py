@@ -242,7 +242,7 @@ def save_reliability(item):
             diagnosis
         )
         VALUES (%s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (station_id)
+        ON CONFLICT (station_id, created_at)
         DO UPDATE SET
             mtbf_hours = EXCLUDED.mtbf_hours,
             top_loss_type = EXCLUDED.top_loss_type,
@@ -526,8 +526,9 @@ def save_defect(item):
             defect_rate_pct
         )
         VALUES (%s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (station_id, total_bookings)
+        ON CONFLICT (station_id, created_at)
         DO UPDATE SET
+            total_bookings = EXCLUDED.total_bookings,
             good_count = EXCLUDED.good_count,
             fail_count = EXCLUDED.fail_count,
             scrap_count = EXCLUDED.scrap_count,
