@@ -48,7 +48,7 @@ def create_measurement_data (payload: MeasurementDataCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/measurement_data /")
-def get_measurement_data():
+def get_measurement_data(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -67,8 +67,7 @@ def get_measurement_data():
                 measure_fail_code,
                 measure_type
             FROM staging.measurement_data 
-            ORDER BY id DESC
-            LIMIT 100;
+            ORDER BY id DESC;
         """)
 
         rows = cur.fetchall()

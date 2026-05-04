@@ -43,7 +43,7 @@ def create_site(payload: SiteCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/sites/")
-def get_sites():
+def get_sites(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -58,8 +58,7 @@ def get_sites():
                 geo_coordinates,
                 description
             FROM staging.sites
-            ORDER BY id DESC
-            LIMIT 100;
+            ORDER BY id DESC;
         """)
 
         rows = cur.fetchall()

@@ -57,7 +57,7 @@ def create_work_orders(payload: WorkordersCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/work_orders/")
-def get_work_orders():
+def get_work_orders(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -88,8 +88,7 @@ def get_work_orders():
                 aps_planning_end_date,   
                 aps_order_fixation   
             FROM staging.work_orders
-            ORDER BY id DESC
-            LIMIT 100;
+            ORDER BY id DESC;
         """)
 
         rows = cur.fetchall()

@@ -44,7 +44,7 @@ def create_bom_headers(payload: BomHeadersCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/bom_headers/")
-def get_bom_headers():
+def get_bom_headers(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -62,8 +62,7 @@ def get_bom_headers():
                 is_current,
                 previous_version_id                
             FROM staging.bom_headers
-            ORDER BY id DESC
-            LIMIT 100;
+            ORDER BY id DESC;
         """)
 
         rows = cur.fetchall()

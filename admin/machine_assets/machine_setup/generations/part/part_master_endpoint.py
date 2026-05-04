@@ -53,7 +53,7 @@ def create_part_master(payload: PartMasterCreate):
     
 # ✅ GET depuis PostgreSQL
 @router.get("/part_master/")
-def get_part_master():
+def get_part_master(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -79,8 +79,7 @@ def get_part_master():
             no_of_panels,
             customer_material_number
             FROM staging.part_master
-            ORDER BY id DESC
-            LIMIT 100;
+            ORDER BY id DESC;
         """)
 
         rows = cur.fetchall()

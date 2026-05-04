@@ -40,7 +40,7 @@ def create_bom_items(payload: BomItemsCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/bom_items/")
-def get_bom_items():
+def get_bom_items(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -54,8 +54,7 @@ def get_bom_items():
                 component_name,
                 layer                
             FROM staging.bom_items
-            ORDER BY id DESC
-            LIMIT 100;
+            ORDER BY id DESC;
         """)
 
         rows = cur.fetchall()

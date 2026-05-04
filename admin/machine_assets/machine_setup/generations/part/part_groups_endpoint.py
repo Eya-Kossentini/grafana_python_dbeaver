@@ -50,7 +50,7 @@ def create_part_groups(payload: PartGroupsCreate):
     
 # ✅ GET depuis PostgreSQL
 @router.get("/part_groups/")
-def get_part_groups():
+def get_part_groups(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -73,8 +73,7 @@ def get_part_groups():
               created_on,
               edited_on
             FROM staging.part_groups
-            ORDER BY id DESC
-            LIMIT 100;
+            ORDER BY id DESC;
         """)
 
         rows = cur.fetchall()

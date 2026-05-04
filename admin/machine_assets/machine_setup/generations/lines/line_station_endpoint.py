@@ -36,7 +36,7 @@ def create_line_station(payload: LineStationCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/line_station/")
-def get_line_station():
+def get_line_station(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:

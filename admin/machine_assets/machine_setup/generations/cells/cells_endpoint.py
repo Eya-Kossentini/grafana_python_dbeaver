@@ -42,7 +42,7 @@ def create_cells(payload: CellsCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/cells/")
-def get_cells():
+def get_cells(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -56,8 +56,7 @@ def get_cells():
                 info,
                 is_active
             FROM staging.cells
-            ORDER BY id DESC
-            LIMIT 100;
+            ORDER BY id DESC;
         """)
 
         rows = cur.fetchall()

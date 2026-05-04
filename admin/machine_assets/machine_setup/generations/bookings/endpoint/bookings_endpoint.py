@@ -48,7 +48,7 @@ def create_booking(payload: BookingCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/bookings/")
-def get_bookings():
+def get_bookings(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -61,8 +61,7 @@ def get_bookings():
                 date_of_booking,
                 real_cycle_time
             FROM staging.bookings
-            ORDER BY id DESC
-            LIMIT 100;
+            ORDER BY id DESC;
         """)
 
         rows = cur.fetchall()

@@ -43,7 +43,7 @@ def create_machine_groups(payload: MachineGroupsCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/machine_groups/")
-def get_machine_groups():
+def get_machine_groups(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -57,8 +57,7 @@ def get_machine_groups():
                 is_active,
                 failure
             FROM staging.machine_groups
-            ORDER BY id DESC
-            LIMIT 100;
+            ORDER BY id DESC;
         """)
 
         rows = cur.fetchall()

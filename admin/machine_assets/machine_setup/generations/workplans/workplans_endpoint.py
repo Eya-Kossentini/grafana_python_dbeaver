@@ -50,7 +50,7 @@ def create_workplans(payload: WorkplansCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/workplans/")
-def get_workplans():
+def get_workplans(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -73,8 +73,7 @@ def get_workplans():
                 workplan_type,
                 workplan_version_erp
             FROM staging.workplans
-            ORDER BY id DESC
-            LIMIT 100;
+            ORDER BY id DESC;
         """)
 
         rows = cur.fetchall()

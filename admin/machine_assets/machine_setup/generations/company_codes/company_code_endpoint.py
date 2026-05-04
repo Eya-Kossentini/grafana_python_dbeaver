@@ -41,7 +41,7 @@ def create_company_codes(payload: CompanyCodeCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/company_codes/")
-def get_company_codes():
+def get_company_codes(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -53,8 +53,7 @@ def get_company_codes():
                 name,
                 description
             FROM staging.company_codes
-            ORDER BY id DESC
-            LIMIT 100;
+            ORDER BY id DESC;
         """)
 
         rows = cur.fetchall()

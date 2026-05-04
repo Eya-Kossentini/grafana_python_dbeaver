@@ -36,7 +36,7 @@ def create_assign_stations_to_erpgrp(payload: assign_stations_to_erpgrp_Create):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/assign_stations_to_erpgrp/")
-def get_assign_stations_to_erpgrp():
+def get_assign_stations_to_erpgrp(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -47,8 +47,7 @@ def get_assign_stations_to_erpgrp():
                 station_type,
                 user_id
             FROM staging.assign_stations_to_erpgrp
-            ORDER BY station_id DESC
-            LIMIT 100;
+            ORDER BY station_id DESC;
         """)
 
         rows = cur.fetchall()

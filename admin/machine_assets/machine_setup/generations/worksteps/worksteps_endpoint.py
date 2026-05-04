@@ -60,7 +60,7 @@ def create_worksteps(payload: WorkstepsCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/worksteps/")
-def get_worksteps():
+def get_worksteps(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -94,8 +94,7 @@ def get_worksteps():
                 step_type,
                 stamp
             FROM staging.worksteps
-            ORDER BY id DESC
-            LIMIT 100;
+            ORDER BY id DESC;
         """)
 
         rows = cur.fetchall()

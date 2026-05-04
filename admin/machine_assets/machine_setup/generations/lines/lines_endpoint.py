@@ -41,7 +41,7 @@ def create_lines(payload: LinesCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/lines/")
-def get_lines():
+def get_lines(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -53,8 +53,7 @@ def get_lines():
                 date,
                 user_id
             FROM staging.lines
-            ORDER BY id DESC
-            LIMIT 100;
+            ORDER BY id DESC;
         """)
 
         rows = cur.fetchall()

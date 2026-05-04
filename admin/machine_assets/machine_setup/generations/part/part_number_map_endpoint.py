@@ -43,7 +43,7 @@ def create_part_number_map(payload: PartNumberMapCreate):
     
 # ✅ GET depuis PostgreSQL
 @router.get("/part_number_map/")
-def get_part_number_map():
+def get_part_number_map(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -59,8 +59,7 @@ def get_part_number_map():
             unit_id,
             customer_material_number
             FROM staging.part_number_map
-            ORDER BY id DESC
-            LIMIT 100;
+            ORDER BY id DESC;
         """)
 
         rows = cur.fetchall()

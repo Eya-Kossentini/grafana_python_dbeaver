@@ -48,7 +48,7 @@ def create_erp_groups(payload: ERPGroupCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/erp_groups/")
-def get_erp_groups():
+def get_erp_groups(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -69,8 +69,7 @@ def get_erp_groups():
                 cst_id,
                 valid
             FROM staging.erp_groups
-            ORDER BY id DESC
-            LIMIT 100;
+            ORDER BY id DESC;
         """)
 
         rows = cur.fetchall()

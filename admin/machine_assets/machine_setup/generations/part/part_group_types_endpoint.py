@@ -37,7 +37,7 @@ def create_part_group_type(payload: PartGroupTypeCreate):
     
 # ✅ GET depuis PostgreSQL
 @router.get("/part_group_type/")
-def get_part_group_type():
+def get_part_group_type(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -47,8 +47,7 @@ def get_part_group_type():
                 name,
                 description
             FROM staging.part_group_types
-            ORDER BY id DESC
-            LIMIT 100;
+            ORDER BY id DESC;
         """)
 
         rows = cur.fetchall()

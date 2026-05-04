@@ -39,7 +39,7 @@ def create_active_workorders(payload: ActiveWorkordersCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/active_workorders/")
-def get_active_workorders():
+def get_active_workorders(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -51,8 +51,7 @@ def get_active_workorders():
                 state, 
                 process_layer
             FROM staging.active_workorders
-            ORDER BY id DESC
-            LIMIT 100;
+            ORDER BY id DESC;
         """)
 
         rows = cur.fetchall()

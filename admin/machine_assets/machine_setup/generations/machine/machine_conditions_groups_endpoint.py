@@ -38,7 +38,7 @@ def create_machine_condition_groups(payload: MachineConditionsGroupsCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/machine_condition_groups/")
-def get_machine_condition_groups():
+def get_machine_condition_groups(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -49,8 +49,7 @@ def get_machine_condition_groups():
                 group_description,
                 is_active
             FROM staging.machine_condition_groups
-            ORDER BY id DESC
-            LIMIT 100;
+            ORDER BY id DESC;
         """)
 
         rows = cur.fetchall()

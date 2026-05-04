@@ -50,7 +50,7 @@ def create_serial_numbers(payload: SerialNumbersCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/serial_numbers/")
-def get_serial_numbers():
+def get_serial_numbers(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -74,8 +74,7 @@ def get_serial_numbers():
                 created_by,
                 company_code_id
             FROM staging.serial_numbers
-            ORDER BY id DESC
-            LIMIT 100;
+            ORDER BY id DESC;
         """)
 
         rows = cur.fetchall()

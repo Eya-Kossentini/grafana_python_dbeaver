@@ -46,7 +46,7 @@ def create_machine_condition_data (payload: MachineConditionsDataCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/machine_condition_data/")
-def get_machine_condition_data ():
+def get_machine_condition_data (limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:
@@ -63,8 +63,7 @@ def get_machine_condition_data ():
             color_rgb,
             condition_created
             FROM staging.machine_condition_data
-            ORDER BY id DESC
-            LIMIT 100;
+            ORDER BY id DESC;
         """)
 
         rows = cur.fetchall()
