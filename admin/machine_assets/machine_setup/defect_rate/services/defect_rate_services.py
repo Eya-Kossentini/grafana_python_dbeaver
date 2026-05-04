@@ -6,8 +6,6 @@ from admin.machine_assets.machine_setup.defect_rate.schemas.defect_rate_schemas 
     DefectRateItem,
     DefectRateResponse,
 )
-
-
 from admin.db_timescale import save_defect
 
 
@@ -18,11 +16,15 @@ class KPIDefectRateService:
     def get_defect_rate(
         self,
         station_id: Optional[int] = None,
+        station_name: Optional[str] = None,
         token: Optional[str] = None
     ) -> DefectRateResponse:
         try:
+            stations_map: Dict[int, str] = self.kpi_defect_rate_repository.get_stations_map(token=token)
+
             bookings = self.kpi_defect_rate_repository.get_bookings(
                 station_id=station_id,
+                station_name=station_name,
                 token=token
             )
 
@@ -48,10 +50,13 @@ class KPIDefectRateService:
                     st_id = int(st_id)
                 except (ValueError, TypeError):
                     continue
+                
+                st_name = stations_map.get(st_id, "Unknown")
 
                 if st_id not in grouped:
                     grouped[st_id] = {
                         "station_id": st_id,
+                        "station_name": st_name,  # ✅ maintenant défini
                         "total_bookings": 0,
                         "good_count": 0,
                         "fail_count": 0,
@@ -59,7 +64,7 @@ class KPIDefectRateService:
                         "defect_count": 0,
                         "defect_rate_pct": 0.0,
                     }
-
+                    
                 grouped[st_id]["total_bookings"] += 1
 
                 if state == "pass":
@@ -80,10 +85,10 @@ class KPIDefectRateService:
                 results.append(DefectRateItem(**item))
 
             results.sort(key=lambda x: x.station_id)
-            
+
             for item in results:
                 save_defect(item)
-            
+
             return DefectRateResponse(
                 title="Defect Rate KPI by Station",
                 kpi="defect_rate",

@@ -4,6 +4,7 @@ from typing import List
 
 class DefectRateItem(BaseModel):
     station_id: int
+    station_name: str
     total_bookings: int
     good_count: int
     fail_count: int
