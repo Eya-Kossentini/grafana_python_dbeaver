@@ -56,19 +56,7 @@ class Container(containers.DeclarativeContainer):
         db=db,
     )
 
-    
-    kpi_defect_rate_repository = providers.Factory(
-        defect_rate_repository.KPIDefectRateRepository,
-        session_factory = db.provided.session,
-        bookings_url=config.bookings_url.from_value("http://127.0.0.1:8000/bookings/bookings/")
-    )
-    
- 
-    kpi_defect_rate_service = providers.Factory(
-        defect_rate_services.KPIDefectRateService,
-        kpi_defect_rate_repository=kpi_defect_rate_repository
-    )
-    
+
     
     KPIAvailabilityRepository = providers.Factory(
         availability_repository.KPIAvailabilityRepository,
@@ -107,11 +95,7 @@ class Container(containers.DeclarativeContainer):
         kpi_performance_service=KPIPerformanceService,
         kpi_quality_service=KPIQualityService,
     )  
-    
-    KPIParetoLossesService = providers.Factory(
-    pareto_losses_services.KPIParetoLossesService,
-    )
-    
+
     KPIMTBFService = providers.Factory(
         mtbf_services.KPIMTBFService,
     )
@@ -120,6 +104,11 @@ class Container(containers.DeclarativeContainer):
         mttr_services.KPIMTTRService,
     )
     
+    KPIParetoLossesService = providers.Factory(
+    pareto_losses_services.KPIParetoLossesService,
+    )
+    
+    
     KPIDowntimeService = providers.Factory(
         downtime_services.KPIDowntimeService,
     )
@@ -127,7 +116,19 @@ class Container(containers.DeclarativeContainer):
     KPIScrapByDayService = providers.Factory(
         scrap_by_day_services.KPIScrapByDayService,
     )
+
+    kpi_defect_rate_repository = providers.Factory(
+        defect_rate_repository.KPIDefectRateRepository,
+        session_factory = db.provided.session,
+        bookings_url=config.bookings_url.from_value("http://127.0.0.1:8000/bookings/bookings/")
+    )
     
+ 
+    kpi_defect_rate_service = providers.Factory(
+        defect_rate_services.KPIDefectRateService,
+        kpi_defect_rate_repository=kpi_defect_rate_repository
+    )
+
     
     DashboardOverviewRepository = providers.Factory(
         dashboard_overview_repository.DashboardOverviewRepository,
@@ -144,7 +145,7 @@ class Container(containers.DeclarativeContainer):
         repository=DashboardOverviewRepository,
     )
     
-      # Repository
+ 
   
    
     def init_resources(self):

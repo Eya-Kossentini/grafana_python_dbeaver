@@ -11,13 +11,22 @@ from admin.db_timescale import save_availability
 
 
 class KPIAvailabilityService:
-    RUNNING_IDS = {14}
-    MICRO_STOP_IDS = {1}
-    BREAKDOWN_IDS = {6}
-    PLANNED_STOP_IDS = {2, 4, 7, 8, 10, 11, 12, 13, 16}
+    
+    # RUNNING : tous les IDs où description = "Running"
+    RUNNING_IDS = {14, 26, 32, 38, 44, 50, 56, 62, 68}
+    
+    # MICRO_STOP : Minor Stoppages, Cleaning, Rate Deviation
+    MICRO_STOP_IDS = {1, 2, 3, 17, 18, 27, 28, 33, 34, 39, 40, 45, 46, 51, 52, 57, 58, 63, 64}
+    
+    # BREAKDOWN : Change Over, Part Shortage, Machine Breakdown
+    BREAKDOWN_IDS = {4, 5, 6, 19, 20, 29, 30, 35, 36, 41, 42, 47, 48, 53, 54, 59, 60, 65, 66}
+    
+    # PLANNED_STOP : Maintenance, Inventory, Fire Drills, Trial, Meeting, Break
+    PLANNED_STOP_IDS = {7, 8, 10, 11, 12, 13, 16, 21, 22, 23, 24, 25, 31, 37, 43, 49, 55, 61, 67}
 
     def __init__(self, kpi_availability_repository: KPIAvailabilityRepository) -> None:
         self.kpi_availability_repository = kpi_availability_repository
+        self._category_ids_cache = None
 
     @staticmethod
     def _parse_datetime(value: Optional[str]):
@@ -50,19 +59,17 @@ class KPIAvailabilityService:
                 yield current_day_start.date(), (overlap_end - overlap_start).total_seconds()
 
             current_day_start = next_day_start
-
-    def get_availability(
-        self,
-        station_id: Optional[int] = None,
-        date_from: Optional[str] = None,
-        date_to: Optional[str] = None,
-        token: Optional[str] = None
-    ):
+            
+    def get_availability(self, station_id=None, date_from=None, date_to=None, token=None):
+        running_ids = self.RUNNING_IDS
+        micro_stop_ids = self.MICRO_STOP_IDS
+        breakdown_ids = self.BREAKDOWN_IDS
+        planned_stop_ids = self.PLANNED_STOP_IDS
+        
         events = self.kpi_availability_repository.get_machine_condition_data(
             station_id=station_id,
-            token=token
-        )
-
+            token=token)
+ 
         filter_date_from = self._parse_date(date_from)
         filter_date_to = self._parse_date(date_to)
 
@@ -102,16 +109,16 @@ class KPIAvailabilityService:
                     continue
 
                 key = (production_day, event_station_id)
-
-                if condition_id in self.RUNNING_IDS:
+                
+                if condition_id in running_ids:        # ← au lieu de self.RUNNING_IDS
                     machine_time[key]["run_time_s"] += duration_seconds
-                elif condition_id in self.MICRO_STOP_IDS:
+                elif condition_id in micro_stop_ids:   # ← au lieu de self.MICRO_STOP_IDS
                     machine_time[key]["micro_stop_s"] += duration_seconds
-                elif condition_id in self.BREAKDOWN_IDS:
+                elif condition_id in breakdown_ids:    # ← au lieu de self.BREAKDOWN_IDS
                     machine_time[key]["breakdown_s"] += duration_seconds
-                elif condition_id in self.PLANNED_STOP_IDS:
+                elif condition_id in planned_stop_ids: # ← au lieu de self.PLANNED_STOP_IDS
                     machine_time[key]["planned_stop_s"] += duration_seconds
-
+                
         if not machine_time:
             raise HTTPException(status_code=404, detail="No availability KPI data found")
 

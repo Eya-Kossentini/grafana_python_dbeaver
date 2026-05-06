@@ -1,5 +1,6 @@
 from collections import defaultdict
 from typing import Optional
+from datetime import datetime 
 
 from admin.machine_assets.machine_setup.pareto_losses.repositories.pareto_losses_repository import (
     KPIParetoLossesRepository,
@@ -10,6 +11,9 @@ from admin.machine_assets.machine_setup.pareto_losses.schemas.pareto_losses_sche
 from admin.db_timescale import save_pareto
 
 class KPIParetoLossesService:
+    BREAKDOWN_IDS = {4, 5, 6, 19, 20, 29, 30, 35, 36, 41, 42, 47, 48, 53, 54, 59, 60, 65, 66}
+    MICRO_STOP_IDS = {1, 2, 3, 17, 18, 27, 28, 33, 34, 39, 40, 45, 46, 51, 52, 57, 58, 63, 64}
+    
     def __init__(
         self,
         pareto_losses_repository: KPIParetoLossesRepository,
@@ -45,27 +49,39 @@ class KPIParetoLossesService:
             current_station_id = item.get("station_id")
             if current_station_id is None:
                 continue
-
             if station_id is not None and current_station_id != station_id:
                 continue
 
-            production_day = normalize_day(item.get("event_time"))
+            # ⚠️ PATCH 1 : utiliser date_from au lieu de event_time
+            production_day = normalize_day(item.get("date_from"))
             if not in_date_range(production_day):
                 continue
 
             condition_id = item.get("condition_id")
-            duration_seconds = float(item.get("duration_seconds", 0) or 0)
+            
+            # ⚠️ PATCH 2 : calculer la durée depuis date_from/date_to
+            duration_seconds = 0.0
+            date_from_raw = item.get("date_from")
+            date_to_raw = item.get("date_to") or item.get("updated_at")
+            if date_from_raw and date_to_raw:
+                try:
+                    start_dt = datetime.fromisoformat(date_from_raw)
+                    end_dt = datetime.fromisoformat(date_to_raw)
+                    duration_seconds = max((end_dt - start_dt).total_seconds(), 0.0)
+                except Exception:
+                    duration_seconds = 0.0
 
-            if condition_id in (8, 12, 16):
+            # ⚠️ PATCH 3 : utiliser les bons IDs
+            if condition_id in self.BREAKDOWN_IDS:
                 loss_type = "BREAKDOWN"
-            elif condition_id in (5, 6):
+            elif condition_id in self.MICRO_STOP_IDS:
                 loss_type = "MICRO_STOP"
             else:
                 continue
 
             loss_hours = duration_seconds / 3600.0
             losses_agg[(current_station_id, production_day, loss_type)] += loss_hours
-
+        
         for item in bookings_data:
             current_station_id = item.get("station_id")
             if current_station_id is None:

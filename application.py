@@ -88,19 +88,27 @@ def create_app() -> FastAPI:
     app = FastAPI()
 
     app.include_router(endpoints.router, prefix="/auth", tags=["auth"])
-    app.include_router(defect_rate_endpoint.router)  
+  
     app.include_router(availability_endpoint.router)
     app.include_router(performance_endpoint.router)
     app.include_router(quality_endpoint.router)
     app.include_router(oee_endpoint.router)
-    app.include_router(pareto_losses_endpoint.router)
+    
     app.include_router(mtbf_endpoint.router)
     app.include_router(mttr_endpoint.router)
+    
+    app.include_router(pareto_losses_endpoint.router)
+
     app.include_router(reliability_diagnostic_endpoint.router)
-    app.include_router(downtime_endpoint.router)
     app.include_router(failure_loss_diagnostic_endpoint.router)
+    
+    app.include_router(downtime_endpoint.router)
     app.include_router(scrap_by_day_endpoint.router)
+    app.include_router(defect_rate_endpoint.router)  
+    
+    
     app.include_router(dashboard_overview_endpoint.router)
+    
     app.include_router(bookings_router)
     app.include_router(company_codes_router)
     app.include_router(client_router)

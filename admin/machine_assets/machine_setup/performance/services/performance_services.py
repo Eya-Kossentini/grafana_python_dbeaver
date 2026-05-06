@@ -11,8 +11,8 @@ from admin.db_timescale import save_performance
 
 
 class KPIPerformanceService:
-    RUNNING_IDS = {14}
-    MICRO_STOP_IDS = {1}
+    RUNNING_IDS = {14, 26, 32, 38, 44, 50, 56, 62, 68}
+    MICRO_STOP_IDS = {1, 2, 3, 17, 18, 27, 28, 33, 34, 39, 40, 45, 46, 51, 52, 57, 58, 63, 64}
 
     def __init__(self, kpi_performance_repository: KPIPerformanceRepository) -> None:
         self.kpi_performance_repository = kpi_performance_repository

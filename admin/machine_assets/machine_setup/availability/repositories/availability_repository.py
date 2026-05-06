@@ -14,6 +14,23 @@ class KPIAvailabilityRepository:
     def __init__(self) -> None:
         self.machine_condition_data_url = self.MACHINE_CONDITION_DATA_URL
         self.machine_conditions_url = self.MACHINE_CONDITIONS_URL
+      
+    def get_all_machine_conditions(self, token: Optional[str] = None) -> list:
+        """Fetch toutes les machine_conditions depuis l'API."""
+        headers = {}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+    
+        response = requests.get(
+            "http://127.0.0.1:8000/machine_conditions/machine_conditions/",
+            headers=headers,
+            timeout=30,
+            verify=False,
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data if isinstance(data, list) else data.get("results", [])
+      
         
     def _build_headers(self, token: Optional[str]) -> Dict[str, str]:
         if not token:

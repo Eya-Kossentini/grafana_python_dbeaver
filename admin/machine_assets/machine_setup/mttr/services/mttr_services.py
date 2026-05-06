@@ -8,6 +8,8 @@ from admin.machine_assets.machine_setup.mttr.schemas.mttr_schemas import MTTRRes
 from admin.db_timescale import save_mttr
 
 class KPIMTTRService:
+    BREAKDOWN_IDS = {4, 5, 6, 19, 20, 29, 30, 35, 36, 41, 42, 47, 48, 53, 54, 59, 60, 65, 66}
+    
     def __init__(self, mttr_repository: KPIMTTRRepository) -> None:
         self.mttr_repository = mttr_repository
 
@@ -53,7 +55,7 @@ class KPIMTTRService:
                     duration_seconds = 0.0
 
             # Machine Breakdown = 6
-            if condition_id == 6:
+            if condition_id in self.BREAKDOWN_IDS: 
                 repair_time_map[current_station_id] = (
                     repair_time_map.get(current_station_id, 0.0) + duration_seconds
                 )

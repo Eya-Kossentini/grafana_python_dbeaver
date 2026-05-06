@@ -9,6 +9,9 @@ from admin.machine_assets.machine_setup.mtbf.schemas.mtbf_schemas import MTBFRes
 from admin.db_timescale import save_mtbf
 
 class KPIMTBFService:
+    RUNNING_IDS = {14, 26, 32, 38, 44, 50, 56, 62, 68}
+    BREAKDOWN_IDS = {4, 5, 6, 19, 20, 29, 30, 35, 36, 41, 42, 47, 48, 53, 54, 59, 60, 65, 66}
+
     def __init__(self, mtbf_repository: KPIMTBFRepository) -> None:
         self.mtbf_repository = mtbf_repository
 
@@ -53,14 +56,14 @@ class KPIMTBFService:
                 except Exception:
                     duration_seconds = 0.0
 
-            # Running = 14
-            if condition_id == 14:
+            # Running 
+            if condition_id in self.RUNNING_IDS:
                 run_time_map[current_station_id] = (
                     run_time_map.get(current_station_id, 0.0) + duration_seconds
                 )
 
-            # Machine Breakdown = 6
-            elif condition_id == 6:
+            # Machine Breakdown
+            elif condition_id in self.BREAKDOWN_IDS:
                 failure_map[current_station_id] = (
                     failure_map.get(current_station_id, 0) + 1
                 )
