@@ -96,19 +96,24 @@ PCB_PROCESS_STEPS = [
 
 
 ALLOWED_CONDITIONS: list[dict[str, Any]] = [
-    {"code": "1000", "desc": "Minor Stoppages & Waiting",  "group_id": 1, "color": "#d6a624"},
-    {"code": "1001", "desc": "Cleaning",                   "group_id": 1, "color": "#099f95"},
-    {"code": "1002", "desc": "Rate Deviation & Others",    "group_id": 1, "color": "#d12323"},
-    {"code": "2000", "desc": "Change Over & Setup",        "group_id": 2, "color": "#4940c9"},
-    {"code": "2001", "desc": "Part Shortage",              "group_id": 2, "color": "#d544c8"},
-    {"code": "2002", "desc": "Machine Breakdown",          "group_id": 2, "color": "#8b1818"},
-    {"code": "3000", "desc": "Preventive Maintenance",     "group_id": 3, "color": "#e6d628"},
-    {"code": "3001", "desc": "Inventory Check",            "group_id": 3, "color": "#4daeea"},
+    {"code": "1000", "desc": "Running",                    "group_id": 3, "color": "#13be1e"},
+    {"code": "1003", "desc": "Micro Stop",                 "group_id": 1, "color": "#d6a624"},
+    {"code": "1001", "desc": "Waiting",                    "group_id": 1, "color": "#c811aa"},
+    {"code": "1002", "desc": "Cooling phase during molding",    "group_id": 1, "color": "#d12323"},
+    {"code": "1200", "desc": "Rate Deviation & others",         "group_id": 1, "color": "#8a607b"},
+    {"code": "2100", "desc": "Part Shortage",              "group_id": 2, "color": "#d7dab9   "},
+    {"code": "2000", "desc": "Breakdown",          "group_id": 2, "color": "#8b1818"},
+    {"code": "2002", "desc": "Calibration",          "group_id": 2, "color": "#54e990"},
+    {"code": "3000", "desc": "Inventory Check",     "group_id": 3, "color": "#377764"},
+    {"code": "3001", "desc": "Material Check",            "group_id": 3, "color": "#4daeea"},
     {"code": "3002", "desc": "Fire Drills",                "group_id": 3, "color": "#c56767"},
     {"code": "3003", "desc": "Trial & Pilot Run",          "group_id": 3, "color": "#3a884e"},
     {"code": "3004", "desc": "Meeting",                    "group_id": 3, "color": "#ea7f06"},
     {"code": "3005", "desc": "No Production & Break",      "group_id": 3, "color": "#3e6eac"},
-    {"code": "3006", "desc": "Running",                    "group_id": 3, "color": "#13be1e"},
+    {"code": "3100", "desc": "Preventive Maintenance",     "group_id": 3, "color": "#e6d628"},
+    {"code": "5001", "desc": "Cleaning",                   "group_id": 3, "color": "#099f95"},
+    {"code": "6001", "desc": "Setup",                    "group_id": 3, "color": "#4940c9"},
+    
 ]
 
 

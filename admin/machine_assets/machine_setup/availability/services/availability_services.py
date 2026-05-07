@@ -13,20 +13,29 @@ from admin.db_timescale import save_availability
 class KPIAvailabilityService:
     
     # RUNNING : tous les IDs où description = "Running"
-    RUNNING_IDS = {14, 26, 32, 38, 44, 50, 56, 62, 68}
-    
+    RUNNING_CODES = {"1000"}
+  
     # MICRO_STOP : Minor Stoppages, Cleaning, Rate Deviation
-    MICRO_STOP_IDS = {1, 2, 3, 17, 18, 27, 28, 33, 34, 39, 40, 45, 46, 51, 52, 57, 58, 63, 64}
+    MICRO_STOP_CODES = {"1001", "1002", "1003", "1200"}
     
     # BREAKDOWN : Change Over, Part Shortage, Machine Breakdown
-    BREAKDOWN_IDS = {4, 5, 6, 19, 20, 29, 30, 35, 36, 41, 42, 47, 48, 53, 54, 59, 60, 65, 66}
+    BREAKDOWN_CODES = {"2000", "2100"}
     
     # PLANNED_STOP : Maintenance, Inventory, Fire Drills, Trial, Meeting, Break
-    PLANNED_STOP_IDS = {7, 8, 10, 11, 12, 13, 16, 21, 22, 23, 24, 25, 31, 37, 43, 49, 55, 61, 67}
+    PLANNED_STOP_CODES= {"2002", "3000", "3001", "3002", "3003", "3004",
+                        "3005", "3100", "5001", "6001" }
 
     def __init__(self, kpi_availability_repository: KPIAvailabilityRepository) -> None:
         self.kpi_availability_repository = kpi_availability_repository
-        self._category_ids_cache = None
+        #self._category_ids_cache = None
+
+    def _build_condition_code_map(self, token: Optional[str] = None):
+        conditions = self.kpi_availability_repository.get_all_machine_conditions(token=token)
+        return {
+                    cond.get("id"): str(cond.get("condition_name"))
+                    for cond in conditions
+                    if cond.get("id") is not None and cond.get("condition_name") is not None
+                }
 
     @staticmethod
     def _parse_datetime(value: Optional[str]):
@@ -61,10 +70,7 @@ class KPIAvailabilityService:
             current_day_start = next_day_start
             
     def get_availability(self, station_id=None, date_from=None, date_to=None, token=None):
-        running_ids = self.RUNNING_IDS
-        micro_stop_ids = self.MICRO_STOP_IDS
-        breakdown_ids = self.BREAKDOWN_IDS
-        planned_stop_ids = self.PLANNED_STOP_IDS
+        condition_code_map = self._build_condition_code_map(token=token)
         
         events = self.kpi_availability_repository.get_machine_condition_data(
             station_id=station_id,
@@ -83,11 +89,12 @@ class KPIAvailabilityService:
         for event in events:
             event_station_id = event.get("station_id")
             condition_id = event.get("condition_id")
+            condition_code = condition_code_map.get(condition_id)
 
             if event_station_id is None or condition_id is None:
                 continue
 
-            if station_id is not None and event_station_id != station_id:
+            if station_id is not None and int(event_station_id) != int(station_id):
                 continue
 
             start_dt = self._parse_datetime(event.get("date_from"))
@@ -110,15 +117,15 @@ class KPIAvailabilityService:
 
                 key = (production_day, event_station_id)
                 
-                if condition_id in running_ids:        # ← au lieu de self.RUNNING_IDS
+                if condition_code in self.RUNNING_CODES:
                     machine_time[key]["run_time_s"] += duration_seconds
-                elif condition_id in micro_stop_ids:   # ← au lieu de self.MICRO_STOP_IDS
+                elif condition_code in self.MICRO_STOP_CODES:
                     machine_time[key]["micro_stop_s"] += duration_seconds
-                elif condition_id in breakdown_ids:    # ← au lieu de self.BREAKDOWN_IDS
+                elif condition_code in self.BREAKDOWN_CODES:
                     machine_time[key]["breakdown_s"] += duration_seconds
-                elif condition_id in planned_stop_ids: # ← au lieu de self.PLANNED_STOP_IDS
+                elif condition_code in self.PLANNED_STOP_CODES:
                     machine_time[key]["planned_stop_s"] += duration_seconds
-                
+    
         if not machine_time:
             raise HTTPException(status_code=404, detail="No availability KPI data found")
 

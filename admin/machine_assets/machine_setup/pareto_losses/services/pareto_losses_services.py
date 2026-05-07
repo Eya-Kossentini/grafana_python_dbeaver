@@ -11,15 +11,25 @@ from admin.machine_assets.machine_setup.pareto_losses.schemas.pareto_losses_sche
 from admin.db_timescale import save_pareto
 
 class KPIParetoLossesService:
-    BREAKDOWN_IDS = {4, 5, 6, 19, 20, 29, 30, 35, 36, 41, 42, 47, 48, 53, 54, 59, 60, 65, 66}
-    MICRO_STOP_IDS = {1, 2, 3, 17, 18, 27, 28, 33, 34, 39, 40, 45, 46, 51, 52, 57, 58, 63, 64}
+    BREAKDOWN_CODES = {"2000", "2100"}
+
+    MICRO_STOP_CODES = { "1001", "1002",   "1003",   "1200"}
     
     def __init__(
         self,
         pareto_losses_repository: KPIParetoLossesRepository,
     ) -> None:
         self.pareto_losses_repository = pareto_losses_repository
-        
+    
+    def _build_condition_code_map(self, token: Optional[str] = None):
+        conditions = self.pareto_losses_repository.get_all_machine_conditions(token=token)
+
+        return {
+            cond.get("id"): str(cond.get("condition_name"))
+            for cond in conditions
+            if cond.get("id") is not None and cond.get("condition_name") is not None
+        }
+    
     def get_pareto_losses(
     self,
     station_id: Optional[int] = None,
@@ -27,7 +37,7 @@ class KPIParetoLossesService:
     date_to: Optional[str] = None,
     token: Optional[str] = None,
     only_critical: Optional[bool] = None, ):
-
+    
         def normalize_day(value):
             return str(value)[:10] if value is not None else None
 
@@ -41,6 +51,10 @@ class KPIParetoLossesService:
             return True
 
         machine_data = self.pareto_losses_repository.get_machine_condition_data(token=token)
+        
+        condition_code_map = self._build_condition_code_map(token=token)
+
+
         bookings_data = self.pareto_losses_repository.get_bookings_data(token=token)
 
         losses_agg = defaultdict(float)
@@ -58,6 +72,7 @@ class KPIParetoLossesService:
                 continue
 
             condition_id = item.get("condition_id")
+            condition_code = condition_code_map.get(condition_id)
             
             # ⚠️ PATCH 2 : calculer la durée depuis date_from/date_to
             duration_seconds = 0.0
@@ -70,12 +85,13 @@ class KPIParetoLossesService:
                     duration_seconds = max((end_dt - start_dt).total_seconds(), 0.0)
                 except Exception:
                     duration_seconds = 0.0
-
-            # ⚠️ PATCH 3 : utiliser les bons IDs
-            if condition_id in self.BREAKDOWN_IDS:
+                    
+            if condition_code in self.BREAKDOWN_CODES:
                 loss_type = "BREAKDOWN"
-            elif condition_id in self.MICRO_STOP_IDS:
+
+            elif condition_code in self.MICRO_STOP_CODES:
                 loss_type = "MICRO_STOP"
+
             else:
                 continue
 

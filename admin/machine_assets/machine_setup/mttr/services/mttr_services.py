@@ -8,17 +8,37 @@ from admin.machine_assets.machine_setup.mttr.schemas.mttr_schemas import MTTRRes
 from admin.db_timescale import save_mttr
 
 class KPIMTTRService:
-    BREAKDOWN_IDS = {4, 5, 6, 19, 20, 29, 30, 35, 36, 41, 42, 47, 48, 53, 54, 59, 60, 65, 66}
+    BREAKDOWN_CODES = {"2000"}
+    
     
     def __init__(self, mttr_repository: KPIMTTRRepository) -> None:
         self.mttr_repository = mttr_repository
 
+    @staticmethod
+    def _parse_datetime(value: Optional[str]):
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except Exception:
+            return None
+
+    def _build_condition_code_map(self, token: Optional[str] = None):
+        conditions = self.mttr_repository.get_all_machine_conditions(token=token)
+
+        return {
+            cond.get("id"): str(cond.get("condition_name"))
+            for cond in conditions
+            if cond.get("id") is not None and cond.get("condition_name") is not None
+        }
+        
     def get_mttr(
         self,
         station_id: Optional[int] = None,
         token: Optional[str] = None,
     ):
         data = self.mttr_repository.get_machine_condition_data(token=token)
+        condition_code_map = self._build_condition_code_map(token=token)
 
         repair_time_map = {}
         failure_map = {}
@@ -28,69 +48,61 @@ class KPIMTTRService:
             if current_station_id is None:
                 continue
 
-            if station_id is not None and current_station_id != station_id:
+            if station_id is not None and int(current_station_id) != int(station_id):
                 continue
 
             condition_id = item.get("condition_id")
-            date_from = item.get("date_from")
-            date_to = item.get("date_to")
-            updated_at = item.get("updated_at")
+            condition_code = condition_code_map.get(condition_id)
+            
+            if condition_code not in self.BREAKDOWN_CODES:
+                continue
+            
+            start_dt = self._parse_datetime(item.get("date_from"))
+            end_dt = self._parse_datetime(item.get("date_to")) or self._parse_datetime(item.get("updated_at"))
 
-            duration_seconds = 0.0
+            if start_dt is None or end_dt is None or end_dt <= start_dt:
+                continue
 
-            if date_from:
-                try:
-                    start_dt = datetime.fromisoformat(date_from)
 
-                    if date_to:
-                        end_dt = datetime.fromisoformat(date_to)
-                    elif updated_at:
-                        end_dt = datetime.fromisoformat(updated_at)
-                    else:
-                        end_dt = start_dt
-
-                    duration_seconds = max((end_dt - start_dt).total_seconds(), 0.0)
-
-                except Exception:
-                    duration_seconds = 0.0
-
-            # Machine Breakdown = 6
-            if condition_id in self.BREAKDOWN_IDS: 
-                repair_time_map[current_station_id] = (
-                    repair_time_map.get(current_station_id, 0.0) + duration_seconds
-                )
-
-                failure_map[current_station_id] = (
-                    failure_map.get(current_station_id, 0) + 1
-                )
-
-        all_station_ids = sorted(set(repair_time_map.keys()) | set(failure_map.keys()))
-
-        results = []
-        for st_id in all_station_ids:
-            repair_time_hours = round(repair_time_map.get(st_id, 0.0) / 3600.0, 2)
-            failure_count = failure_map.get(st_id, 0)
-            mttr_hours = round(repair_time_hours / failure_count, 2) if failure_count > 0 else None
-
-            results.append({
-                "station_id": st_id,
-                "repair_time_hours": repair_time_hours,
-                "failure_count": failure_count,
-                "mttr_hours": mttr_hours,
-            })
-        
-        for row in results:
-            item = MTTRResult(
-                station_id=row["station_id"],
-                repair_time_hours=row["repair_time_hours"],
-                failure_count=row["failure_count"],
-                mttr_hours=row["mttr_hours"]
+            duration_seconds =  (end_dt - start_dt).total_seconds()
+            
+            repair_time_map[current_station_id] = (
+                repair_time_map.get(current_station_id, 0.0) + duration_seconds
             )
-            save_mttr(item)
 
-        return {
-            "title": "MTTR KPI",
-            "kpi": "mttr",
-            "count": len(results),
-            "results": results,
-        }
+            failure_map[current_station_id] = (
+                failure_map.get(current_station_id, 0) + 1
+            )
+            
+            all_station_ids = sorted(set(repair_time_map.keys()) | set(failure_map.keys()))
+
+            results = []
+            
+
+            for st_id in all_station_ids:
+                repair_time_hours = round(repair_time_map.get(st_id, 0.0) / 3600.0, 2)
+                failure_count = failure_map.get(st_id, 0)
+                mttr_hours = round(repair_time_hours / failure_count, 2) if failure_count > 0 else None
+
+                results.append({
+                    "station_id": st_id,
+                    "repair_time_hours": repair_time_hours,
+                    "failure_count": failure_count,
+                    "mttr_hours": mttr_hours,
+                })
+
+            for row in results:
+                item = MTTRResult(
+                    station_id=row["station_id"],
+                    repair_time_hours=row["repair_time_hours"],
+                    failure_count=row["failure_count"],
+                    mttr_hours=row["mttr_hours"]
+                )
+                save_mttr(item)
+
+            return {
+                "title": "MTTR KPI",
+                "kpi": "mttr",
+                "count": len(results),
+                "results": results,
+            }

@@ -11,12 +11,26 @@ from admin.db_timescale import save_performance
 
 
 class KPIPerformanceService:
-    RUNNING_IDS = {14, 26, 32, 38, 44, 50, 56, 62, 68}
-    MICRO_STOP_IDS = {1, 2, 3, 17, 18, 27, 28, 33, 34, 39, 40, 45, 46, 51, 52, 57, 58, 63, 64}
+    RUNNING_CODES = {"1000"}
 
+    MICRO_STOP_CODES = {
+        "1001",  # Waiting
+        "1002",  # Cooling
+        "1003",  # Micro Stop
+        "1200",  # Rate Deviation
+    }
     def __init__(self, kpi_performance_repository: KPIPerformanceRepository) -> None:
         self.kpi_performance_repository = kpi_performance_repository
+        
+    def _build_condition_code_map(self, token: Optional[str] = None):
+        conditions = self.kpi_performance_repository.get_all_machine_conditions(token=token)
 
+        return {
+            cond.get("id"): str(cond.get("condition_name"))
+            for cond in conditions
+            if cond.get("id") is not None and cond.get("condition_name") is not None
+        }
+        
     @staticmethod
     def _parse_datetime(value: Optional[str]):
         if not value:
@@ -60,7 +74,9 @@ class KPIPerformanceService:
             station_id=station_id,
             token=token
         )
-
+        
+        condition_code_map = self._build_condition_code_map(token=token)
+        
         filter_date_from = self._parse_date(date_from)
         filter_date_to = self._parse_date(date_to)
 
@@ -72,6 +88,7 @@ class KPIPerformanceService:
         for event in events:
             event_station_id = event.get("station_id")
             condition_id = event.get("condition_id")
+            condition_code = condition_code_map.get(condition_id)
 
             if event_station_id is None or condition_id is None:
                 continue
@@ -99,9 +116,10 @@ class KPIPerformanceService:
 
                 key = (production_day, event_station_id)
 
-                if condition_id in self.RUNNING_IDS:
+                if condition_code in self.RUNNING_CODES:
                     machine_time[key]["run_time_s"] += duration_seconds
-                elif condition_id in self.MICRO_STOP_IDS:
+
+                elif condition_code in self.MICRO_STOP_CODES:
                     machine_time[key]["micro_stop_s"] += duration_seconds
 
         if not machine_time:

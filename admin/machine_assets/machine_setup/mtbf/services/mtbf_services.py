@@ -2,25 +2,38 @@ from datetime import datetime
 from typing import Optional
 
 from admin.machine_assets.machine_setup.mtbf.repositories.mtbf_repository import KPIMTBFRepository
-
 from admin.machine_assets.machine_setup.mtbf.schemas.mtbf_schemas import MTBFResult
-
-
 from admin.db_timescale import save_mtbf
 
+
 class KPIMTBFService:
-    RUNNING_IDS = {14, 26, 32, 38, 44, 50, 56, 62, 68}
-    BREAKDOWN_IDS = {4, 5, 6, 19, 20, 29, 30, 35, 36, 41, 42, 47, 48, 53, 54, 59, 60, 65, 66}
+    RUNNING_CODES = {"1000"}
+    BREAKDOWN_CODES = {"2000"}
 
     def __init__(self, mtbf_repository: KPIMTBFRepository) -> None:
         self.mtbf_repository = mtbf_repository
 
-    def get_mtbf(
-        self,
-        station_id: Optional[int] = None,
-        token: Optional[str] = None,
-    ):
+    @staticmethod
+    def _parse_datetime(value: Optional[str]):
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except Exception:
+            return None
+
+    def _build_condition_code_map(self, token: Optional[str] = None):
+        conditions = self.mtbf_repository.get_all_machine_conditions(token=token)
+
+        return {
+            cond.get("id"): str(cond.get("condition_name"))
+            for cond in conditions
+            if cond.get("id") is not None and cond.get("condition_name") is not None
+        }
+
+    def get_mtbf(self, station_id: Optional[int] = None, token: Optional[str] = None):
         data = self.mtbf_repository.get_machine_condition_data(token=token)
+        condition_code_map = self._build_condition_code_map(token=token)
 
         run_time_map = {}
         failure_map = {}
@@ -30,40 +43,26 @@ class KPIMTBFService:
             if current_station_id is None:
                 continue
 
-            if station_id is not None and current_station_id != station_id:
+            if station_id is not None and int(current_station_id) != int(station_id):
                 continue
 
             condition_id = item.get("condition_id")
-            date_from = item.get("date_from")
-            date_to = item.get("date_to")
-            updated_at = item.get("updated_at")
+            condition_code = condition_code_map.get(condition_id)
 
-            duration_seconds = 0.0
+            start_dt = self._parse_datetime(item.get("date_from"))
+            end_dt = self._parse_datetime(item.get("date_to")) or self._parse_datetime(item.get("updated_at"))
 
-            if date_from:
-                try:
-                    start_dt = datetime.fromisoformat(date_from)
+            if start_dt is None or end_dt is None or end_dt <= start_dt:
+                continue
 
-                    if date_to:
-                        end_dt = datetime.fromisoformat(date_to)
-                    elif updated_at:
-                        end_dt = datetime.fromisoformat(updated_at)
-                    else:
-                        end_dt = start_dt
+            duration_seconds = (end_dt - start_dt).total_seconds()
 
-                    duration_seconds = max((end_dt - start_dt).total_seconds(), 0.0)
-
-                except Exception:
-                    duration_seconds = 0.0
-
-            # Running 
-            if condition_id in self.RUNNING_IDS:
+            if condition_code in self.RUNNING_CODES:
                 run_time_map[current_station_id] = (
                     run_time_map.get(current_station_id, 0.0) + duration_seconds
                 )
 
-            # Machine Breakdown
-            elif condition_id in self.BREAKDOWN_IDS:
+            elif condition_code in self.BREAKDOWN_CODES:
                 failure_map[current_station_id] = (
                     failure_map.get(current_station_id, 0) + 1
                 )
@@ -83,7 +82,7 @@ class KPIMTBFService:
                 "failure_count": failure_count,
                 "mtbf_hours": mtbf_hours,
             })
-            
+
         for row in results:
             item = MTBFResult(
                 station_id=row["station_id"],

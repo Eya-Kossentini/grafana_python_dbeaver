@@ -61,7 +61,7 @@ class KPIQualityService:
             if booking_station_id is None or booking_date_raw is None:
                 continue
 
-            if station_id is not None and booking_station_id != station_id:
+            if station_id is not None and int(booking_station_id) != int(station_id):
                 continue
 
             booking_dt = self._parse_datetime(booking_date_raw)
