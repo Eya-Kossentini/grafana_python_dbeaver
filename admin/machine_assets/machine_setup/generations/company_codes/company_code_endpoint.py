@@ -41,7 +41,7 @@ def create_company_codes(payload: CompanyCodeCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/company_codes/")
-def get_company_codes(limit: int = 10000): 
+def get_company_codes(): 
     conn = get_connection()
 
     with conn.cursor() as cur:

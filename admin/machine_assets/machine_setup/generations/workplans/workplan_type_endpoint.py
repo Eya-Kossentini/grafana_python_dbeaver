@@ -37,7 +37,7 @@ def create_workplan_types(payload: WorkplansTypesCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/workplan_types/")
-def get_workplan_types(limit: int = 10000): 
+def get_workplan_types(): 
     conn = get_connection()
 
     with conn.cursor() as cur:

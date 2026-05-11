@@ -36,7 +36,7 @@ def create_assign_stations_to_erpgrp(payload: assign_stations_to_erpgrp_Create):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/assign_stations_to_erpgrp/")
-def get_assign_stations_to_erpgrp(limit: int = 10000): 
+def get_assign_stations_to_erpgrp(): 
     conn = get_connection()
 
     with conn.cursor() as cur:

@@ -44,7 +44,7 @@ def create_bom_headers(payload: BomHeadersCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/bom_headers/")
-def get_bom_headers(limit: int = 10000): 
+def get_bom_headers(): 
     conn = get_connection()
 
     with conn.cursor() as cur:

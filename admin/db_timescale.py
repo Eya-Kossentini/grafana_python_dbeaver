@@ -108,16 +108,14 @@ def save_oee(item):
             availability_pct,
             performance_pct,
             quality_pct,
-            quality_missing,
             oee_pct
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s,  %s, %s)
         ON CONFLICT (production_day, station_id)
         DO UPDATE SET
             availability_pct = EXCLUDED.availability_pct,
             performance_pct = EXCLUDED.performance_pct,
             quality_pct = EXCLUDED.quality_pct,
-            quality_missing = EXCLUDED.quality_missing,
             oee_pct = EXCLUDED.oee_pct,
             created_at = NOW()
         RETURNING id;
@@ -127,7 +125,7 @@ def save_oee(item):
         item.availability_pct,
         item.performance_pct,
         item.quality_pct,
-        item.quality_missing,
+        
         item.oee_pct
     ))
 
@@ -239,17 +237,22 @@ def save_reliability(item):
             top_loss_pct,
             pareto_rank,
             criticality_level,
-            diagnosis
+            diagnosis,
+            timestamp,                      
+            production_day,                
+            station_name                  
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (station_id, created_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), %s, %s)
+        ON CONFLICT (station_id, production_day)
         DO UPDATE SET
             mtbf_hours = EXCLUDED.mtbf_hours,
             top_loss_type = EXCLUDED.top_loss_type,
             top_loss_pct = EXCLUDED.top_loss_pct,
             pareto_rank = EXCLUDED.pareto_rank,
             criticality_level = EXCLUDED.criticality_level,
-            diagnosis = EXCLUDED.diagnosis
+            diagnosis = EXCLUDED.diagnosis,
+            station_name = EXCLUDED.station_name,
+            created_at = NOW()
         RETURNING station_id;
     """, (
         item.station_id,
@@ -258,7 +261,9 @@ def save_reliability(item):
         item.top_loss_pct,
         item.pareto_rank,
         item.criticality_level,
-        item.diagnosis
+        item.diagnosis,
+        item.production_day if hasattr(item, 'production_day') else datetime.now().date(),
+        item.station_name if hasattr(item, 'station_name') else None,
     ))
 
     row = cur.fetchone()

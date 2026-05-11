@@ -9,7 +9,7 @@ class OeeResult(BaseModel):
     availability_pct: float
     performance_pct: float
     quality_pct: float
-    quality_missing: bool
+    #quality_missing: bool
     oee_pct: float
 
 

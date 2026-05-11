@@ -50,7 +50,7 @@ def create_workplans(payload: WorkplansCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/workplans/")
-def get_workplans(limit: int = 10000): 
+def get_workplans(): 
     conn = get_connection()
 
     with conn.cursor() as cur:

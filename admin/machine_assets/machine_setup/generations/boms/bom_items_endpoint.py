@@ -40,7 +40,7 @@ def create_bom_items(payload: BomItemsCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/bom_items/")
-def get_bom_items(limit: int = 10000): 
+def get_bom_items(): 
     conn = get_connection()
 
     with conn.cursor() as cur:

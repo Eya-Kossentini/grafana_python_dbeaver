@@ -39,7 +39,7 @@ def create_active_workorders(payload: ActiveWorkordersCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/active_workorders/")
-def get_active_workorders(limit: int = 10000): 
+def get_active_workorders(): 
     conn = get_connection()
 
     with conn.cursor() as cur:

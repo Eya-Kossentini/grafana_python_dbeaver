@@ -40,7 +40,7 @@ def create_client(payload: ClientCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/client/")
-def get_clients(limit: int = 10000): 
+def get_clients(): 
     conn = get_connection()
 
     with conn.cursor() as cur:

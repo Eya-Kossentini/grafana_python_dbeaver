@@ -39,7 +39,7 @@ def create_failure_types(payload: FailureTypesCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/failure_types/")
-def get_failure_types(limit: int = 10000): 
+def get_failure_types(): 
     conn = get_connection()
 
     with conn.cursor() as cur:

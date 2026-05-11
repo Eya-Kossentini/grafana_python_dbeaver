@@ -84,6 +84,7 @@ class KPIAvailabilityService:
             "micro_stop_s": 0.0,
             "breakdown_s": 0.0,
             "planned_stop_s": 0.0,
+            "unknown_s": 0.0,
         })
 
         for event in events:
@@ -125,6 +126,8 @@ class KPIAvailabilityService:
                     machine_time[key]["breakdown_s"] += duration_seconds
                 elif condition_code in self.PLANNED_STOP_CODES:
                     machine_time[key]["planned_stop_s"] += duration_seconds
+                else:
+                    machine_time[key]["unknown_s"] += duration_seconds
     
         if not machine_time:
             raise HTTPException(status_code=404, detail="No availability KPI data found")

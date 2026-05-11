@@ -50,7 +50,7 @@ def create_part_groups(payload: PartGroupsCreate):
     
 # ✅ GET depuis PostgreSQL
 @router.get("/part_groups/")
-def get_part_groups(limit: int = 10000): 
+def get_part_groups(): 
     conn = get_connection()
 
     with conn.cursor() as cur:

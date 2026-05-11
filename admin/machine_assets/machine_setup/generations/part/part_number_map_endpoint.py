@@ -43,7 +43,7 @@ def create_part_number_map(payload: PartNumberMapCreate):
     
 # ✅ GET depuis PostgreSQL
 @router.get("/part_number_map/")
-def get_part_number_map(limit: int = 10000): 
+def get_part_number_map(): 
     conn = get_connection()
 
     with conn.cursor() as cur:

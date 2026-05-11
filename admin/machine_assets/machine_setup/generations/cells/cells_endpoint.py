@@ -42,7 +42,7 @@ def create_cells(payload: CellsCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/cells/")
-def get_cells(limit: int = 10000): 
+def get_cells(): 
     conn = get_connection()
 
     with conn.cursor() as cur:

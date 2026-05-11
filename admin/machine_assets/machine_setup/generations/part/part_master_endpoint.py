@@ -53,7 +53,7 @@ def create_part_master(payload: PartMasterCreate):
     
 # ✅ GET depuis PostgreSQL
 @router.get("/part_master/")
-def get_part_master(limit: int = 10000): 
+def get_part_master(): 
     conn = get_connection()
 
     with conn.cursor() as cur:

@@ -48,7 +48,7 @@ def create_measurement_data (payload: MeasurementDataCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/measurement_data /")
-def get_measurement_data(limit: int = 10000): 
+def get_measurement_data(): 
     conn = get_connection()
 
     with conn.cursor() as cur:

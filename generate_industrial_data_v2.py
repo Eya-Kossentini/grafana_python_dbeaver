@@ -19,6 +19,8 @@ API_TOKEN = os.getenv("API_TOKEN")
 
 POST_BASE_URL = "http://127.0.0.1:8000"
 
+
+
 import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -399,8 +401,7 @@ def _pg_config_from_env() -> PgConfig:
         dbname=os.getenv("PGDATABASE", "postgres"),
         user=os.getenv("PGUSER", "postgres"),
         password=os.getenv("PGPASSWORD", "admin123"),
-        schema=os.getenv("PGSCHEMA", "public"),
-        table="work_orders",
+        schema=os.getenv("PGSCHEMA", "public")
     )
 
 def _get_next_id(conn, table: str, id_col: str = "id") -> int:
@@ -508,7 +509,6 @@ def _state_plan(n: int) -> list[str]:
 # ---------------------------------------------------------------------------
 # Layer 0 – pure reference tables
 # ---------------------------------------------------------------------------
-
 
 def api_post(endpoint: str, payload: dict[str, Any], token: Optional[str] = None) -> dict[str, Any]:
     url = f"{BASE_URL.rstrip('/')}/{endpoint.lstrip('/')}"
@@ -1251,8 +1251,7 @@ def gen_machine_groups_api(cell_ids: list[int], n: int = 10, token=None):
     print("Machine Groups créés :", created_ids)
     return created_ids
 
-
-def seed_machine_groups_api(cell_ids: list[int], token: str) -> dict[int, int]:
+def seed_machine_groups_api(cell_ids: list[int], token: str) -> dict[str, int]:
     if not cell_ids:
         raise ValueError("cell_ids est vide — impossible de créer les machine groups")
 
@@ -1262,7 +1261,6 @@ def seed_machine_groups_api(cell_ids: list[int], token: str) -> dict[int, int]:
     headers = _auth_headers(token)
     url = f"{BASE_URL}/machine-groups/machine_groups/"
 
-    # 🔥 1. définition locale SANS IDs
     machine_groups = [
         {"name": "LAB-GROUP", "description": "Labeling Machines"},
         {"name": "SPP-GROUP", "description": "Solder Paste Printer"},
@@ -1281,26 +1279,28 @@ def seed_machine_groups_api(cell_ids: list[int], token: str) -> dict[int, int]:
         {"name": "CC-GROUP", "description": "Conformal Coating Machines"},
     ]
 
-    id_map: dict[int, int] = {}
+    id_map: dict[str, int] = {}
 
-    # 🔥 2. GET existing once (important optimisation)
     r = requests.get(url, headers=headers, timeout=30, verify=False)
+    r.raise_for_status()
+
     existing = r.json()
     existing_list = existing["results"] if isinstance(existing, dict) and "results" in existing else existing
+    existing_by_name = {
+        x["name"]: x
+        for x in existing_list
+        if isinstance(x, dict) and "name" in x
+    }
 
-    existing_by_name = {x["name"]: x for x in existing_list}
-
-    # 🔥 3. create or reuse
     for i, mg in enumerate(machine_groups):
         name = mg["name"]
 
-        # ✔️ reuse if exists
         if name in existing_by_name:
-            api_id = existing_by_name[name]["id"]
-            id_map[i + 1] = api_id
+            api_id = int(existing_by_name[name]["id"])
+            id_map[name] = api_id
+            print(f"Reusing machine group {name} -> {api_id}")
             continue
 
-        # ✔️ create if not exists
         payload = {
             "name": name,
             "description": mg["description"],
@@ -1312,13 +1312,14 @@ def seed_machine_groups_api(cell_ids: list[int], token: str) -> dict[int, int]:
 
         r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
 
-        print("STATUS:", r.status_code)
-        print("RESPONSE:", r.text)
+        print("MG PAYLOAD:", payload)
+        print("MG STATUS:", r.status_code)
+        print("MG RESPONSE:", r.text)
 
         r.raise_for_status()
-        api_id = r.json()["id"]
 
-        id_map[i + 1] = api_id
+        api_id = int(r.json()["id"])
+        id_map[name] = api_id
 
     print("Machine group id map:", id_map)
     return id_map
@@ -1382,6 +1383,9 @@ def seed_fixed_stations_api(
                 station_legacy_to_api_id[station["legacy_id"]] = recovered_id
                 print(f"Recovered existing station '{station['name']}' (ID {recovered_id})")
                 continue
+            print("STATION PAYLOAD:", payload)
+            print("STATION STATUS:", r.status_code)
+            print("STATION RESPONSE:", r.text)
 
         r.raise_for_status()
 
@@ -2843,6 +2847,7 @@ def gen_bookings_api(
     window_start: datetime,
     window_end: datetime,
     token: str,
+    running_intervals: Optional[list[dict[str, Any]]] = None,
 ) -> list[dict[str, Any]]:
 
     headers = _auth_headers(token)
@@ -2878,19 +2883,41 @@ def gen_bookings_api(
     n_meas = len(MEASUREMENT_CATALOG)
 
     print(f"  Generating {target_bookings:,} bookings via API...")
+    
+    print(f"  Generating {target_bookings:,} bookings via API...")
+
+    # Index des running par station_id pour accès rapide
+    running_by_station: dict[int, list[dict[str, Any]]] = {}
+    if running_intervals:
+        for r in running_intervals:
+            sid = r.get("station_id")
+            if sid is None:
+                continue
+            running_by_station.setdefault(int(sid), []).append(r)
+        print(f"  Stations avec Running : {len(running_by_station)}")
 
     for i in range(target_bookings):
         w = random.choices(wo_list, weights=[w.qty for w in wo_list], k=1)[0]
-        wins = wo_wins[w.workorder_id]
+        station_id_for_booking = station_ids[i % n_stations]
 
-        if wins:
-            seg = random.choice(wins)
-            ts = _random_between(seg[0], seg[1])
-        else:
-            ts = _random_between(w.event_start, w.event_end)
+        # Choix du timestamp : DANS un Running si dispo, sinon shift WO
+        ts = None
+        if running_by_station.get(station_id_for_booking):
+            ts = random_booking_time_from_running(
+                running_by_station[station_id_for_booking],
+                station_id_for_booking,
+            )
+
+        if ts is None:
+            wins = wo_wins[w.workorder_id]
+            if wins:
+                seg = random.choice(wins)
+                ts = _random_between(seg[0], seg[1])
+            else:
+                ts = _random_between(w.event_start, w.event_end)
 
         st = _state_for(w.state)
-
+        
         failed_id = None
         if st in {"fail", "scrap"} and failure_type_ids:
             failed_id = failure_type_ids[random.randint(0, n_fail_types - 1)]
@@ -2908,7 +2935,7 @@ def gen_bookings_api(
 
         payload = {
             "workorder_id": w.workorder_id,
-            "station_id": station_ids[i % n_stations],
+            "station_id": station_id_for_booking,      
             "failed_id": failed_id,
             "serial_number_id": snr_id,
             "process_layer": random.randint(0, 3),
@@ -3011,17 +3038,17 @@ def gen_measurement_data_api(
         fin = ts + timedelta(seconds=random.choice([1.0, 2.0, 3.0]))
 
         payload = {
-            "STATION_ID": station_ids[i % len(station_ids)],
-            "WORKORDER_ID": w.workorder_id,
-            "BOOK_DATE": ts.isoformat(),
-            "MEASURE_NAME": m["measure_name"],
-            "MEASURE_VALUE": str(val),
-            "LOWER_LIMIT": str(lo),
-            "UPPER_LIMIT": str(hi),
-            "NOMINAL": str(float(m["nominal"])),
-            "TOLERANCE": str(float(m["tolerance"])),
-            "MEASURE_FAIL_CODE": 0,
-            "MEASURE_TYPE": m["measure_type"],
+            "station_id": station_ids[i % len(station_ids)],
+            "workorder_id": w.workorder_id,
+            "book_date": ts.isoformat(),
+            "measure_name": m["measure_name"],
+            "measure_value": str(val),
+            "lower_limit": str(lo),
+            "upper_limit": str(hi),
+            "nominal": str(float(m["nominal"])),
+            "tolerance": str(float(m["tolerance"])),
+            "measure_fail_code": 0,
+            "measure_type": m["measure_type"],
             "created_at": ts.isoformat(),
             "updated_at": fin.isoformat(),
         }
@@ -3224,6 +3251,32 @@ def api_post_newBD(endpoint: str, payload: dict, token=None):
     r.raise_for_status()
     return r.json()
 
+def random_booking_time_from_running(running_intervals, station_id):
+    intervals = [
+        r for r in running_intervals
+        if int(r.get("station_id", -1)) == int(station_id)
+        and r.get("date_from")
+        and r.get("date_to")
+    ]
+
+    if not intervals:
+        return None
+
+    interval = random.choice(intervals)
+    start = interval["date_from"]
+    end = interval["date_to"]
+
+    if isinstance(start, str):
+        start = datetime.fromisoformat(start.replace("Z", "+00:00"))
+    if isinstance(end, str):
+        end = datetime.fromisoformat(end.replace("Z", "+00:00"))
+
+    delta = (end - start).total_seconds()
+    if delta <= 0:
+        return None
+
+    return start + timedelta(seconds=random.uniform(0, delta))
+
 # ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
@@ -3256,7 +3309,11 @@ def main() -> None:
     p.add_argument("--n-sites",     type=int, default=2)
     p.add_argument("--n-clients",   type=int, default=3)
     p.add_argument("--seed",        type=int, default=0)
+    p.add_argument("--machine-conditions", action="store_true")
     args = p.parse_args()
+    
+    print("SCRIPT STARTED")
+    print("MONTHS =", args.months)
 
     if int(args.seed):
         random.seed(int(args.seed))
@@ -3268,8 +3325,8 @@ def main() -> None:
         raise SystemExit("Booking probabilities must sum to 1.0")
 
     now          = datetime.now().replace(second=0, microsecond=0)
-    window_end   = now
-    window_start = _add_months(now, -int(args.months))
+    window_end   = datetime.now().replace(microsecond=0)
+    window_start = window_end - timedelta(days=30 * args.months)
 
     print(f"\n{'='*60}")
     print("PCB Industrial Data Generator  –  Full Schema")
@@ -3318,7 +3375,7 @@ def main() -> None:
     machine_group_id_map  = seed_machine_groups_api(cell_ids=cell_ids, token=API_TOKEN)
     print("Machine Groups map :", machine_group_id_map)
     
-    station_legacy_to_api_id = seed_fixed_stations_api(token=API_TOKEN,machine_group_name_to_id=machine_group_name_to_id)
+    station_legacy_to_api_id = seed_fixed_stations_api(token=API_TOKEN,machine_group_name_to_id=machine_group_id_map)
     print("station map", station_legacy_to_api_id )
      
     line_legacy_to_api_id = seed_fixed_lines_api(token=API_TOKEN, station_legacy_to_api_id=station_legacy_to_api_id)
@@ -3452,55 +3509,103 @@ def main() -> None:
     
     print("serial numbers", wo_snr_map)
     
+
     active_workorder_rows = gen_active_workorders_api(
-    wo_windows=wo_windows,
-    station_ids=station_ids,
-    window_end=window_end,
-    n=20,
-    token=API_TOKEN)
-    
+        wo_windows=wo_windows,
+        station_ids=station_ids,
+        window_end=window_end,
+        n=20,
+        token=API_TOKEN
+    )
     print("active workorders", active_workorder_rows)
     
-    
-    booking_rows = gen_bookings_api(
-    wo_windows=wo_windows,
-    wo_snr_map=wo_snr_map,
-    station_ids=station_ids,
-    failure_type_ids=list(failure_type_map.values()) if isinstance(failure_type_map, dict) else failure_type_map,
-    pass_p=0.90,
-    fail_p=0.08,
-    scrap_p=0.02,
-    target_bookings=100,
-    window_start=window_start,
-    window_end=window_end,
-    token=API_TOKEN)
-    
-    print("bookings", booking_rows)
-    
-    measurement_rows = gen_measurement_data_api(
-    wo_windows=wo_windows,
-    station_ids=station_ids,
-    n=200,
-    token=API_TOKEN)
-    
-    print("measurement data", measurement_rows)
-    
+    print(f"Nombre de stations à couvrir : {len(station_ids)}")
+
+    # ═══════════════════════════════════════════════════════════════
+    # ÉTAPE 1 : Générer les MACHINE CONDITION DATA EN PREMIER
+    # (pour que les bookings puissent ensuite tomber dans les Running)
+    # ═══════════════════════════════════════════════════════════════
     machine_condition_rows = gen_machine_condition_data_api(
-    station_ids=station_ids,
-    machine_condition_ids=list(machine_condition_map.values()),
-    window_start=window_start,
-    window_end=window_end,
-    n_max=200,
-    downtime_target=0.20,
-    run_min_h=1,
-    run_max_h=4,
-    down_min_h=0.2,
-    down_max_h=1,
-    token=API_TOKEN)
+        station_ids=station_ids,
+        machine_condition_ids=list(machine_condition_map.values()),
+        window_start=window_start,
+        window_end=window_end,
+        n_max=8400,                    # ⭐ assez pour 84 stations × 100 events
+        downtime_target=0.20,
+        run_min_h=1,
+        run_max_h=4,
+        down_min_h=0.2,
+        down_max_h=1,
+        token=API_TOKEN
+    )
+    print(f"machine condition data: {len(machine_condition_rows)} events créés")
+
+    # ═══════════════════════════════════════════════════════════════
+    # ÉTAPE 2 : Récupérer les périodes RUNNING via API
+    # (machine_condition_rows ne contient que les IDs/URLs, pas les détails)
+    # ═══════════════════════════════════════════════════════════════
     
-    print("machine condition data", machine_condition_rows)
+    # 2a. Construire le mapping condition_id -> code
+    # machine_condition_map = {"1000": 32, "1001": 28, "1002": 18, ...}
+    # On inverse : {32: "1000", 28: "1001", ...}
+    condition_id_to_code = {v: k for k, v in machine_condition_map.items()}
+    
+    # 2b. Identifier les IDs qui correspondent au code "1000" = Running
+    running_condition_ids = {
+        cid for cid, code in condition_id_to_code.items()
+        if code == "1000"
+    }
+    print(f"IDs Running détectés : {running_condition_ids}")
+
+    # 2c. Récupérer les vraies données depuis l'API (avec date_from/date_to)
+    print("Fetching machine_condition_data via API...")
+    mcd_full = api_get(
+        endpoint="machine-condition-data/machine-condition-data/",
+        token=API_TOKEN
+    )
+    
+    # Adapter selon le format de réponse (list ou dict avec "results")
+    if isinstance(mcd_full, dict) and "results" in mcd_full:
+        mcd_full = mcd_full["results"]
+    
+    # 2d. Filtrer pour ne garder que les Running
+    running_intervals = [
+        row for row in mcd_full
+        if row.get("condition_id") in running_condition_ids
+    ]
+    print(f"Périodes Running disponibles : {len(running_intervals)}")
+
+    # ═══════════════════════════════════════════════════════════════
+    # ÉTAPE 3 : Générer les BOOKINGS dans les périodes Running
+    # ═══════════════════════════════════════════════════════════════
+    booking_rows = gen_bookings_api(
+        wo_windows=wo_windows,
+        wo_snr_map=wo_snr_map,
+        station_ids=station_ids,
+        failure_type_ids=list(failure_type_map.values()) if isinstance(failure_type_map, dict) else failure_type_map,
+        pass_p=0.90,
+        fail_p=0.08,
+        scrap_p=0.02,
+        target_bookings=2000,           # ⭐ augmenté pour couvrir 84 stations
+        window_start=window_start,
+        window_end=window_end,
+        token=API_TOKEN,
+        running_intervals=running_intervals,   # ⭐ NOUVEAU paramètre
+    )
+    print(f"bookings: {len(booking_rows)} créés")
+
+    # ═══════════════════════════════════════════════════════════════
+    # ÉTAPE 4 : Générer les MEASUREMENTS
+    # ═══════════════════════════════════════════════════════════════
+    measurement_rows = gen_measurement_data_api(
+        wo_windows=wo_windows,
+        station_ids=station_ids,
+        n=2000,
+        token=API_TOKEN
+    )
+    print(f"measurement data: {len(measurement_rows)} créés")
 
     conn.commit()
-    
+
 if __name__ == "__main__":
     main()

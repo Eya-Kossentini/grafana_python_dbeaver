@@ -41,7 +41,7 @@ def create_lines(payload: LinesCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/lines/")
-def get_lines(limit: int = 10000): 
+def get_lines(): 
     conn = get_connection()
 
     with conn.cursor() as cur:

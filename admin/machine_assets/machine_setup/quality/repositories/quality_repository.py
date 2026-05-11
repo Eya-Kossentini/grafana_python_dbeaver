@@ -9,9 +9,13 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 class KPIQualityRepository:
     
     BOOKING_URL= "http://127.0.0.1:8000/bookings/bookings/"
+     
+    MACHINE_CONDITION_DATA_URL= "http://127.0.0.1:8000/machine_condition_data/machine_condition_data/"
+   
    
     def __init__(self) -> None:
         self.bookings_url = self.BOOKING_URL
+        self.machine_condition_data_url = self.MACHINE_CONDITION_DATA_URL
 
     def _build_headers(self, token: Optional[str]) -> Dict[str, str]:
         if not token:
@@ -34,6 +38,53 @@ class KPIQualityRepository:
                 return data["items"]
 
         raise HTTPException(status_code=500, detail=f"Unexpected bookings format: {type(data).__name__}")
+
+    def get_machine_condition_data(
+        self,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        station_id: Optional[int] = None,
+        token: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        headers = self._build_headers(token)
+
+        params: Dict[str, Any] = {}
+
+        if start_date:
+            params["start_date"] = start_date
+        if end_date:
+            params["end_date"] = end_date
+        if station_id is not None:
+            params["station_id"] = station_id
+
+        try:
+            response = requests.get(
+                self.machine_condition_data_url,
+                headers=headers,
+                params=params,
+                timeout=30,
+                verify=False
+            )
+        except requests.RequestException as e:
+            raise HTTPException(status_code=502, detail=f"Failed to call machine condition data API: {str(e)}")
+
+        if response.status_code == 401:
+            raise HTTPException(status_code=401, detail="Unauthorized by machine condition data API")
+        if response.status_code == 403:
+            raise HTTPException(status_code=403, detail="Forbidden by machine condition data API")
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Machine condition data API returned {response.status_code}: {response.text}"
+            )
+
+        try:
+            data = response.json()
+        except Exception:
+            raise HTTPException(status_code=500, detail="Machine condition data API did not return valid JSON")
+
+        return self._extract_list_data(data)
+
 
     def get_bookings(
         self,

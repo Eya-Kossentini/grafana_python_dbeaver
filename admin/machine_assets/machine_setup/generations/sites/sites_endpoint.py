@@ -43,7 +43,7 @@ def create_site(payload: SiteCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/sites/")
-def get_sites(limit: int = 10000): 
+def get_sites(): 
     conn = get_connection()
 
     with conn.cursor() as cur:

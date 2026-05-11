@@ -60,7 +60,7 @@ def create_worksteps(payload: WorkstepsCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/worksteps/")
-def get_worksteps(limit: int = 10000): 
+def get_worksteps(): 
     conn = get_connection()
 
     with conn.cursor() as cur:

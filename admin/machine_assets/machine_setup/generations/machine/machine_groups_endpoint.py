@@ -43,7 +43,7 @@ def create_machine_groups(payload: MachineGroupsCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/machine_groups/")
-def get_machine_groups(limit: int = 10000): 
+def get_machine_groups(): 
     conn = get_connection()
 
     with conn.cursor() as cur:

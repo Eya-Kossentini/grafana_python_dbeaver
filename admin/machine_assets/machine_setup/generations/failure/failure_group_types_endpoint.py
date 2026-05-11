@@ -37,7 +37,7 @@ def create_failure_group_types(payload: FailureGroupTypesCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/failure_group_types/")
-def get_failure_group_types(limit: int = 10000): 
+def get_failure_group_types(): 
     conn = get_connection()
 
     with conn.cursor() as cur:

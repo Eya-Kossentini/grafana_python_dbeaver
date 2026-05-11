@@ -48,7 +48,7 @@ def create_erp_groups(payload: ERPGroupCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/erp_groups/")
-def get_erp_groups(limit: int = 10000): 
+def get_erp_groups(): 
     conn = get_connection()
 
     with conn.cursor() as cur:

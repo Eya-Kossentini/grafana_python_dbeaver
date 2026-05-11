@@ -110,9 +110,24 @@ class KPIOeeService:
         for key in sorted(all_keys):
             production_day, current_station_id = key
 
+            #availability_item = availability_map.get(key, {})
+            #performance_item = performance_map.get(key, {})
+            #quality_item = quality_map.get(key, {})
+            
+            availability_exists = key in availability_map
+            performance_exists = key in performance_map
+            quality_exists = key in quality_map
+
             availability_item = availability_map.get(key, {})
             performance_item = performance_map.get(key, {})
             quality_item = quality_map.get(key, {})
+            
+            if not (
+                availability_exists
+                and performance_exists
+                and quality_exists
+            ):
+                continue
 
             availability_pct = float(availability_item.get("availability_pct", 0) or 0)
             performance_pct = float(performance_item.get("performance_pct", 0) or 0)
@@ -122,8 +137,8 @@ class KPIOeeService:
 
             oee_pct = round((availability_pct * performance_pct * quality_pct) / 10000, 2)
 
-            if not (availability_pct > 0 or performance_pct > 0 or quality_pct > 0):
-                continue
+            #if not (availability_pct > 0 or performance_pct > 0 or quality_pct > 0):
+             #   continue
 
             results.append({
                 "production_day": production_day,
@@ -131,7 +146,7 @@ class KPIOeeService:
                 "availability_pct": round(availability_pct, 2),
                 "performance_pct": round(performance_pct, 2),
                 "quality_pct": round(quality_pct, 2),
-                "quality_missing": not quality_exists,
+                #"quality_missing": not quality_exists,
                 "oee_pct": oee_pct,
             })
         
@@ -142,7 +157,7 @@ class KPIOeeService:
                 availability_pct=row["availability_pct"],
                 performance_pct=row["performance_pct"], 
                 quality_pct=row["quality_pct"],
-                quality_missing=row["quality_missing"],
+               # quality_missing=row["quality_missing"],
                 oee_pct=row["oee_pct"]
             )
             save_oee(item)

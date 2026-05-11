@@ -39,7 +39,7 @@ def create_part_type(payload: PartTypeCreate):
     
 # ✅ GET depuis PostgreSQL
 @router.get("/part_type/")
-def get_part_type(limit: int = 10000): 
+def get_part_type(): 
     conn = get_connection()
 
     with conn.cursor() as cur:

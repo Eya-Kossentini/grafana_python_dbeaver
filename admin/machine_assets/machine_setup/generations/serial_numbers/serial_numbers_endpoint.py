@@ -50,7 +50,7 @@ def create_serial_numbers(payload: SerialNumbersCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/serial_numbers/")
-def get_serial_numbers(limit: int = 10000): 
+def get_serial_numbers(): 
     conn = get_connection()
 
     with conn.cursor() as cur:
