@@ -46,7 +46,7 @@ def create_machine_condition_data (payload: MachineConditionsDataCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/machine_condition_data/")
-def get_machine_condition_data (): 
+def get_machine_condition_data (limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:

@@ -48,7 +48,7 @@ def create_booking(payload: BookingCreate):
 
 # ✅ GET depuis PostgreSQL
 @router.get("/bookings/")
-def get_bookings(): 
+def get_bookings(limit: int = 10000): 
     conn = get_connection()
 
     with conn.cursor() as cur:

@@ -13,8 +13,8 @@ from generate_industrial_data_v2 import *
 
 load_dotenv()
 
-SOURCE_API_URL = "https://core_demo.momes-solutions.com"
-API_TOKEN = os.getenv("API_TOKEN")
+#SOURCE_API_URL = "https://core_demo.momes-solutions.com"
+#API_TOKEN = os.getenv("API_TOKEN")
 
 headers = {
     "Authorization": f"Bearer {API_TOKEN}",

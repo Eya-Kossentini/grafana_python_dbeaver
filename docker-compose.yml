@@ -37,8 +37,19 @@ services:
     container_name: my_grafana_3
     ports:
       - "3000:3000"
+    environment:
+        GF_SMTP_ENABLED: "true"
+        GF_SMTP_HOST: "smtp.gmail.com:587"
+        GF_SMTP_USER: "eya.kos2015@gmail.com"
+        GF_SMTP_PASSWORD: "bmsp kewn szxr hdmi"
+        GF_SMTP_FROM_ADDRESS: "eya.kos2015@gmail.com"
+        GF_SMTP_FROM_NAME: "Grafana Alerts"
+        GF_SMTP_STARTTLS_POLICY: "OpportunisticStartTLS"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - postgres_data:/var/lib/postgresql/data
     depends_on:
       - my_postgres_v3
-
 volumes:
   postgres_data:
+  grafana_data:

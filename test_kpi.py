@@ -15,14 +15,15 @@ Usage:
 import random
 from datetime import datetime, timedelta, time
 import psycopg2
+from psycopg2.extras import execute_values 
 
 # ============================================================
 # PARAMETRES DE GENERATION
 # ============================================================
 
-NB_DAYS = 30                # Nombre de jours a generer
+NB_DAYS = 180                # Nombre de jours a generer
 NB_STATIONS = 10            # Nombre de stations (1..NB_STATIONS)
-START_DATE = datetime(2026, 2, 1)  # Date de debut
+START_DATE = datetime(2025, 11, 13) # Date de debut
 
 # Plage horaire de production par jour
 PRODUCTION_START_HOUR = 8
@@ -406,37 +407,57 @@ def insert_into_db(mcds, bookings):
     conn = psycopg2.connect(**DB_CONFIG)
     try:
         with conn.cursor() as cur:
+            # ===== INSERT MCD =====
             print(f"Insertion de {len(mcds)} lignes dans staging.machine_condition_data...")
-            cur.executemany(
+            mcd_values = [
+                (m["id"], m["date_from"], m["date_to"], m["station_id"],
+                 m["condition_id"], m["level"], m["condition_stamp"],
+                 m["condition_type"], m["color_rgb"], m["condition_created"])
+                for m in mcds
+            ]
+            execute_values(
+                cur,
                 """
                 INSERT INTO staging.machine_condition_data
                     (id, date_from, date_to, station_id, condition_id, level,
                      condition_stamp, condition_type, color_rgb, condition_created)
-                VALUES (%(id)s, %(date_from)s, %(date_to)s, %(station_id)s,
-                        %(condition_id)s, %(level)s, %(condition_stamp)s,
-                        %(condition_type)s, %(color_rgb)s, %(condition_created)s)
+                VALUES %s
                 ON CONFLICT (id) DO NOTHING;
                 """,
-                mcds,
+                mcd_values,
+                page_size=1000,
             )
-
+            print(f"  -> MCD inseres")
+           # ===== INSERT BOOKINGS =====
             print(f"Insertion de {len(bookings)} lignes dans staging.bookings...")
-            cur.executemany(
-                """
-                INSERT INTO staging.bookings
-                    (id, workorder_id, station_id, failed_id, serial_number_id,
-                     process_layer, date_of_booking, state, mesure_id, real_cycle_time,
-                     type, snr_booking, booked_by)
-                VALUES (%(id)s, %(workorder_id)s, %(station_id)s, %(failed_id)s,
-                        %(serial_number_id)s, %(process_layer)s, %(date_of_booking)s,
-                        %(state)s, %(mesure_id)s, %(real_cycle_time)s, %(type)s,
-                        %(snr_booking)s, %(booked_by)s)
-                ON CONFLICT (id) DO NOTHING;
-                """,
-                bookings,
-            )
+            # Insertion par batchs de 50k pour ne pas exploser la memoire
+            BATCH_SIZE = 50000
+            total = len(bookings)
+            for i in range(0, total, BATCH_SIZE):
+                batch = bookings[i:i + BATCH_SIZE]
+                batch_values = [
+                    (b["id"], b["workorder_id"], b["station_id"], b["failed_id"],
+                     b["serial_number_id"], b["process_layer"], b["date_of_booking"],
+                     b["state"], b["mesure_id"], b["real_cycle_time"], b["type"],
+                     b["snr_booking"], b["booked_by"])
+                    for b in batch
+                ]
+                execute_values(
+                    cur,
+                    """
+                    INSERT INTO staging.bookings
+                        (id, workorder_id, station_id, failed_id, serial_number_id,
+                         process_layer, date_of_booking, state, mesure_id, real_cycle_time,
+                         type, snr_booking, booked_by)
+                    VALUES %s
+                    ON CONFLICT (id) DO NOTHING;
+                    """,
+                    batch_values,
+                    page_size=2000,
+                )
+                conn.commit()  # commit intermediaire pour suivre la progression
+                print(f"  -> Batch {i + len(batch):>8} / {total} ({100 * (i + len(batch)) / total:.1f}%)")
 
-        conn.commit()
         print("Insertion terminee avec succes.")
     except Exception as e:
         conn.rollback()
