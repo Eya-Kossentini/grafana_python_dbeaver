@@ -1,0 +1,172 @@
+=================================================================
+   RAPPORT Z-SCORE ANOMALY DETECTION
+=================================================================
+
+  Période OEE      : 2025-11-13 → 2026-05-11
+  Période Downtime : 2025-11-13 → 2026-05-11
+  Période Defect   : 2025-11-12 → 2026-05-10
+
+── OEE (Z-Score, direction=low) ──
+
+  FRA-AOI-L01-01          moy=69.4%  σ=17.1  z_min=-2.65  warning=3  critical=0
+  FRA-OVE-L01-01          moy=69.0%  σ=16.5  z_min=-2.07  warning=1  critical=0
+  FRA-PP-L01-01           moy=66.4%  σ=16.5  z_min=-2.80  warning=3  critical=0
+  FRA-PP-L01-02           moy=67.8%  σ=15.4  z_min=-2.21  warning=2  critical=0
+  FRA-PP-L01-03           moy=66.7%  σ=16.3  z_min=-2.39  warning=2  critical=0
+  HDR-MLD-L01-01          moy=68.4%  σ=16.4  z_min=-2.30  warning=3  critical=0
+  HDR-MLD-L01-02          moy=68.3%  σ=16.5  z_min=-2.99  warning=3  critical=0
+  SF-SPI-L01-01           moy=69.6%  σ=17.4  z_min=-2.71  warning=3  critical=0
+  SFX-PLM-ASSY-01         moy=67.1%  σ=17.4  z_min=-2.73  warning=3  critical=0
+  SFX-PLM-PROG-01         moy=65.1%  σ=15.6  z_min=-2.61  warning=1  critical=0
+
+  Détail anomalies OEE :
+    2025-12-19    FRA-AOI-L01-01          OEE=30.4%  z=-2.28  sévérité=warning
+    2026-01-16    FRA-AOI-L01-01          OEE=24.2%  z=-2.65  sévérité=warning
+    2026-03-03    FRA-AOI-L01-01          OEE=29.0%  z=-2.37  sévérité=warning
+    2026-04-30    FRA-OVE-L01-01          OEE=34.8%  z=-2.07  sévérité=warning
+    2025-11-19    FRA-PP-L01-01           OEE=30.5%  z=-2.18  sévérité=warning
+    2025-12-29    FRA-PP-L01-01           OEE=32.7%  z=-2.04  sévérité=warning
+    2026-01-21    FRA-PP-L01-01           OEE=20.2%  z=-2.80  sévérité=warning
+    2026-02-17    FRA-PP-L01-02           OEE=34.8%  z=-2.15  sévérité=warning
+    2026-04-01    FRA-PP-L01-02           OEE=33.7%  z=-2.21  sévérité=warning
+    2026-01-08    FRA-PP-L01-03           OEE=33.7%  z=-2.01  sévérité=warning
+    2026-02-10    FRA-PP-L01-03           OEE=27.6%  z=-2.39  sévérité=warning
+    2026-02-03    HDR-MLD-L01-01          OEE=30.9%  z=-2.29  sévérité=warning
+    2026-04-08    HDR-MLD-L01-01          OEE=31.4%  z=-2.26  sévérité=warning
+    2026-04-09    HDR-MLD-L01-01          OEE=30.7%  z=-2.30  sévérité=warning
+    2026-01-07    HDR-MLD-L01-02          OEE=18.9%  z=-2.99  sévérité=warning
+    2026-02-19    HDR-MLD-L01-02          OEE=31.9%  z=-2.20  sévérité=warning
+    2026-03-12    HDR-MLD-L01-02          OEE=24.4%  z=-2.65  sévérité=warning
+    2025-12-02    SF-SPI-L01-01           OEE=26.5%  z=-2.47  sévérité=warning
+    2026-03-13    SF-SPI-L01-01           OEE=22.4%  z=-2.71  sévérité=warning
+    2026-04-21    SF-SPI-L01-01           OEE=29.5%  z=-2.30  sévérité=warning
+    2026-01-29    SFX-PLM-ASSY-01         OEE=31.6%  z=-2.04  sévérité=warning
+    2026-02-13    SFX-PLM-ASSY-01         OEE=25.5%  z=-2.40  sévérité=warning
+    2026-03-30    SFX-PLM-ASSY-01         OEE=19.7%  z=-2.73  sévérité=warning
+    2026-02-25    SFX-PLM-PROG-01         OEE=24.4%  z=-2.61  sévérité=warning
+
+── Downtime (Z-Score > 3) ──
+
+  Moyenne=35.0 min  σ=24.9  Seuil z=3 → 109.7 min  Anomalies=60
+
+  Par type de downtime :
+    Breakdown                       35
+    Part Shortage                   25
+
+  Détail anomalies Downtime :
+    2026-02-04    FRA-PP-L01-01           227 min  z=7.70  type=Part Shortage
+    2025-11-24    FRA-PP-L01-03           191 min  z=6.25  type=Breakdown
+    2026-04-15    FRA-PP-L01-02           186 min  z=6.08  type=Part Shortage
+    2026-01-14    HDR-MLD-L01-01          185 min  z=6.01  type=Part Shortage
+    2026-04-03    SFX-PLM-PROG-01         179 min  z=5.78  type=Breakdown
+    2025-12-18    FRA-OVE-L01-01          161 min  z=5.04  type=Breakdown
+    2026-03-12    SFX-PLM-PROG-01         158 min  z=4.94  type=Breakdown
+    2026-03-10    FRA-PP-L01-02           154 min  z=4.79  type=Part Shortage
+    2026-01-15    SFX-PLM-ASSY-01         153 min  z=4.72  type=Breakdown
+    2026-02-17    SFX-PLM-ASSY-01         152 min  z=4.69  type=Breakdown
+    2026-03-03    HDR-MLD-L01-02          150 min  z=4.64  type=Breakdown
+    2026-05-05    FRA-PP-L01-03           150 min  z=4.63  type=Breakdown
+    2026-02-09    FRA-PP-L01-01           149 min  z=4.56  type=Breakdown
+    2025-11-26    FRA-PP-L01-03           147 min  z=4.50  type=Breakdown
+    2026-01-27    SF-SPI-L01-01           145 min  z=4.43  type=Breakdown
+    2026-02-23    FRA-AOI-L01-01          145 min  z=4.43  type=Part Shortage
+    2026-02-02    FRA-OVE-L01-01          142 min  z=4.30  type=Part Shortage
+    2026-02-25    FRA-PP-L01-01           141 min  z=4.27  type=Breakdown
+    2026-05-11    HDR-MLD-L01-02          140 min  z=4.20  type=Breakdown
+    2026-04-22    HDR-MLD-L01-01          136 min  z=4.07  type=Breakdown
+    2026-04-30    FRA-PP-L01-03           136 min  z=4.07  type=Part Shortage
+    2026-01-16    FRA-AOI-L01-01          136 min  z=4.06  type=Breakdown
+    2025-11-27    FRA-AOI-L01-01          136 min  z=4.05  type=Part Shortage
+    2025-12-17    HDR-MLD-L01-01          135 min  z=4.01  type=Breakdown
+    2026-02-18    HDR-MLD-L01-02          133 min  z=3.93  type=Breakdown
+    2026-04-10    SFX-PLM-ASSY-01         133 min  z=3.92  type=Part Shortage
+    2025-11-20    HDR-MLD-L01-01          132 min  z=3.90  type=Breakdown
+    2026-01-29    FRA-AOI-L01-01          131 min  z=3.87  type=Breakdown
+    2026-02-16    HDR-MLD-L01-02          131 min  z=3.87  type=Part Shortage
+    2026-01-06    SFX-PLM-ASSY-01         129 min  z=3.76  type=Breakdown
+    2026-03-16    FRA-PP-L01-02           129 min  z=3.76  type=Part Shortage
+    2026-05-06    FRA-PP-L01-03           128 min  z=3.74  type=Part Shortage
+    2026-04-15    SFX-PLM-PROG-01         126 min  z=3.66  type=Breakdown
+    2026-01-30    SFX-PLM-ASSY-01         126 min  z=3.64  type=Breakdown
+    2026-05-01    FRA-PP-L01-03           125 min  z=3.63  type=Breakdown
+    2026-01-27    SFX-PLM-PROG-01         125 min  z=3.62  type=Breakdown
+    2026-05-07    HDR-MLD-L01-01          125 min  z=3.60  type=Part Shortage
+    2026-02-06    FRA-OVE-L01-01          125 min  z=3.60  type=Part Shortage
+    2026-03-31    FRA-PP-L01-01           124 min  z=3.56  type=Part Shortage
+    2026-03-12    HDR-MLD-L01-01          123 min  z=3.54  type=Part Shortage
+    2026-02-10    SFX-PLM-PROG-01         121 min  z=3.46  type=Breakdown
+    2026-03-05    FRA-PP-L01-02           121 min  z=3.45  type=Part Shortage
+    2026-04-13    HDR-MLD-L01-01          121 min  z=3.45  type=Breakdown
+    2026-01-02    FRA-PP-L01-01           120 min  z=3.40  type=Breakdown
+    2026-02-19    FRA-OVE-L01-01          119 min  z=3.39  type=Breakdown
+    2026-02-17    FRA-PP-L01-02           119 min  z=3.36  type=Breakdown
+    2025-12-18    SFX-PLM-PROG-01         119 min  z=3.35  type=Breakdown
+    2025-11-20    SF-SPI-L01-01           118 min  z=3.32  type=Part Shortage
+    2026-01-29    SFX-PLM-ASSY-01         117 min  z=3.31  type=Part Shortage
+    2026-04-30    FRA-PP-L01-01           117 min  z=3.27  type=Part Shortage
+    2026-02-05    SFX-PLM-ASSY-01         116 min  z=3.25  type=Breakdown
+    2026-01-21    SFX-PLM-PROG-01         115 min  z=3.21  type=Part Shortage
+    2025-12-29    HDR-MLD-L01-01          114 min  z=3.18  type=Breakdown
+    2026-01-21    FRA-PP-L01-03           114 min  z=3.18  type=Part Shortage
+    2026-01-19    FRA-PP-L01-01           114 min  z=3.17  type=Breakdown
+    2026-04-09    HDR-MLD-L01-01          113 min  z=3.15  type=Part Shortage
+    2025-11-24    FRA-AOI-L01-01          112 min  z=3.11  type=Part Shortage
+    2026-04-29    HDR-MLD-L01-01          112 min  z=3.09  type=Breakdown
+    2026-05-04    HDR-MLD-L01-01          112 min  z=3.08  type=Part Shortage
+    2026-03-04    SF-SPI-L01-01           111 min  z=3.06  type=Breakdown
+
+── Defect Rate (Z-Score, direction=high) ──
+
+  Vue agrégée — moy=7.97%  σ=0.29  Seuil warning z>2 → 8.54%  Seuil critical z>3 → 8.83%
+  Anomalies agrégées — warning=3  critical=0
+
+  Anomalies par station :
+    FRA-AOI-L01-01          moy=7.95%  σ=0.927  warning=1  critical=1
+    FRA-OVE-L01-01          moy=7.89%  σ=0.816  warning=5  critical=0
+    FRA-PP-L01-01           moy=8.01%  σ=1.062  warning=3  critical=1
+    FRA-PP-L01-02           moy=7.92%  σ=0.966  warning=2  critical=0
+    FRA-PP-L01-03           moy=8.06%  σ=0.924  warning=2  critical=1
+    HDR-MLD-L01-01          moy=7.92%  σ=0.858  warning=3  critical=0
+    HDR-MLD-L01-02          moy=8.06%  σ=1.017  warning=3  critical=0
+    SF-SPI-L01-01           moy=8.00%  σ=0.966  warning=4  critical=0
+    SFX-PLM-ASSY-01         moy=8.03%  σ=0.990  warning=6  critical=0
+    SFX-PLM-PROG-01         moy=7.90%  σ=0.932  warning=3  critical=0
+
+  Détail anomalies Defect Rate :
+    2026-04-16    FRA-AOI-L01-01          defect=11.33%  z=3.64  sévérité=critical
+    2026-04-21    FRA-AOI-L01-01          defect=10.03%  z=2.24  sévérité=warning
+    2026-01-25    FRA-OVE-L01-01          defect=9.61%  z=2.11  sévérité=warning
+    2026-02-01    FRA-OVE-L01-01          defect=9.79%  z=2.33  sévérité=warning
+    2026-03-03    FRA-OVE-L01-01          defect=10.00%  z=2.59  sévérité=warning
+    2026-04-07    FRA-OVE-L01-01          defect=10.24%  z=2.88  sévérité=warning
+    2026-04-30    FRA-OVE-L01-01          defect=9.70%  z=2.22  sévérité=warning
+    2025-12-18    FRA-PP-L01-01           defect=10.84%  z=2.67  sévérité=warning
+    2025-12-29    FRA-PP-L01-01           defect=10.35%  z=2.21  sévérité=warning
+    2026-01-18    FRA-PP-L01-01           defect=11.69%  z=3.47  sévérité=critical
+    2026-04-07    FRA-PP-L01-01           defect=10.27%  z=2.13  sévérité=warning
+    2025-11-12    FRA-PP-L01-02           defect=10.70%  z=2.88  sévérité=warning
+    2026-02-16    FRA-PP-L01-02           defect=10.04%  z=2.20  sévérité=warning
+    2026-02-09    FRA-PP-L01-03           defect=11.27%  z=3.48  sévérité=critical
+    2026-03-12    FRA-PP-L01-03           defect=10.35%  z=2.48  sévérité=warning
+    2026-04-01    FRA-PP-L01-03           defect=10.78%  z=2.95  sévérité=warning
+    2026-03-03    HDR-MLD-L01-01          defect=9.87%  z=2.27  sévérité=warning
+    2026-04-08    HDR-MLD-L01-01          defect=10.06%  z=2.49  sévérité=warning
+    2026-05-04    HDR-MLD-L01-01          defect=9.88%  z=2.28  sévérité=warning
+    2025-12-02    HDR-MLD-L01-02          defect=10.98%  z=2.87  sévérité=warning
+    2026-01-08    HDR-MLD-L01-02          defect=10.42%  z=2.32  sévérité=warning
+    2026-03-09    HDR-MLD-L01-02          defect=10.22%  z=2.12  sévérité=warning
+    2025-12-01    SF-SPI-L01-01           defect=10.76%  z=2.86  sévérité=warning
+    2025-12-04    SF-SPI-L01-01           defect=10.41%  z=2.49  sévérité=warning
+    2026-03-05    SF-SPI-L01-01           defect=10.04%  z=2.11  sévérité=warning
+    2026-04-20    SF-SPI-L01-01           defect=10.09%  z=2.16  sévérité=warning
+    2025-11-20    SFX-PLM-ASSY-01         defect=10.02%  z=2.01  sévérité=warning
+    2026-01-05    SFX-PLM-ASSY-01         defect=10.11%  z=2.10  sévérité=warning
+    2026-01-07    SFX-PLM-ASSY-01         defect=10.34%  z=2.34  sévérité=warning
+    2026-02-18    SFX-PLM-ASSY-01         defect=10.26%  z=2.26  sévérité=warning
+    2026-03-05    SFX-PLM-ASSY-01         defect=10.21%  z=2.21  sévérité=warning
+    2026-03-29    SFX-PLM-ASSY-01         defect=10.82%  z=2.82  sévérité=warning
+    2026-01-15    SFX-PLM-PROG-01         defect=9.77%  z=2.00  sévérité=warning
+    2026-03-15    SFX-PLM-PROG-01         defect=9.78%  z=2.01  sévérité=warning
+    2026-03-22    SFX-PLM-PROG-01         defect=10.25%  z=2.52  sévérité=warning
+
+=================================================================

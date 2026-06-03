@@ -1,0 +1,38 @@
+=================================================================
+   RAPPORT MOVING AVERAGE DEVIATION — OEE
+=================================================================
+
+  Fenêtre MA    : 7 jours
+  Seuil warning : 50%  d'écart vs MA
+  Seuil critical: 100% d'écart vs MA
+  Direction     : low (chutes uniquement)
+  Stations      : 10
+  Période       : 2025-11-13 → 2026-05-11
+
+── Résumé Moving Average par station ──
+
+  FRA-AOI-L01-01          total=  3  warning=  3  critical=  0  max_écart=93.2%
+  FRA-OVE-L01-01          total=  0  warning=  0  critical=  0  max_écart=64.6%
+  FRA-PP-L01-01           total=  4  warning=  4  critical=  0  max_écart=73.9%
+  FRA-PP-L01-02           total=  1  warning=  1  critical=  0  max_écart=60.4%
+  FRA-PP-L01-03           total=  1  warning=  1  critical=  0  max_écart=70.3%
+  HDR-MLD-L01-01          total=  4  warning=  4  critical=  0  max_écart=60.6%
+  HDR-MLD-L01-02          total=  3  warning=  3  critical=  0  max_écart=71.6%
+  SF-SPI-L01-01           total=  4  warning=  4  critical=  0  max_écart=68.5%
+  SFX-PLM-ASSY-01         total=  5  warning=  5  critical=  0  max_écart=74.1%
+  SFX-PLM-PROG-01         total=  1  warning=  1  critical=  0  max_écart=81.4%
+
+── Résumé Z-Score par station ──
+
+  FRA-AOI-L01-01          warning=  3  critical=  0  z_min=-2.65
+  FRA-OVE-L01-01          warning=  1  critical=  0  z_min=-2.07
+  FRA-PP-L01-01           warning=  3  critical=  0  z_min=-2.80
+  FRA-PP-L01-02           warning=  2  critical=  0  z_min=-2.21
+  FRA-PP-L01-03           warning=  2  critical=  0  z_min=-2.39
+  HDR-MLD-L01-01          warning=  3  critical=  0  z_min=-2.30
+  HDR-MLD-L01-02          warning=  3  critical=  0  z_min=-2.99
+  SF-SPI-L01-01           warning=  3  critical=  0  z_min=-2.71
+  SFX-PLM-ASSY-01         warning=  3  critical=  0  z_min=-2.73
+  SFX-PLM-PROG-01         warning=  1  critical=  0  z_min=-2.61
+
+=================================================================

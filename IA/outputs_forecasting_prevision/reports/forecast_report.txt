@@ -1,0 +1,64 @@
+=================================================================
+   RAPPORT PRÉVISION DEFECT RATE J+1
+=================================================================
+
+  Fenêtre Moving Average : 7 jours
+  Stations analysées     : 10
+  Période               : 2025-11-12 → 2026-05-10
+
+── Métriques de performance ──
+
+  SF-SPI-L01-01 (station_id=1) :
+    MA7           MAE=0.8456  RMSE=1.0623  MAPE=10.78%  (n=125)
+    ES Holt       MAE=0.7871  RMSE=0.9644  MAPE=10.01%  (n=127)
+
+  HDR-MLD-L01-01 (station_id=2) :
+    MA7           MAE=0.7146  RMSE=0.9023  MAPE=9.17%  (n=125)
+    ES Holt       MAE=0.6904  RMSE=0.8531  MAPE=8.86%  (n=127)
+
+  HDR-MLD-L01-02 (station_id=3) :
+    MA7           MAE=0.8430  RMSE=1.0630  MAPE=10.87%  (n=125)
+    ES Holt       MAE=0.7736  RMSE=0.9987  MAPE=10.04%  (n=127)
+
+  FRA-PP-L01-01 (station_id=4) :
+    MA7           MAE=0.8789  RMSE=1.1377  MAPE=11.33%  (n=125)
+    ES Holt       MAE=0.8031  RMSE=1.0566  MAPE=10.36%  (n=127)
+
+  FRA-PP-L01-02 (station_id=5) :
+    MA7           MAE=0.7904  RMSE=0.9994  MAPE=10.42%  (n=125)
+    ES Holt       MAE=0.7509  RMSE=0.9338  MAPE=9.97%  (n=127)
+
+  FRA-PP-L01-03 (station_id=6) :
+    MA7           MAE=0.7902  RMSE=1.0047  MAPE=9.91%  (n=125)
+    ES Holt       MAE=0.7100  RMSE=0.9202  MAPE=8.92%  (n=127)
+
+  FRA-OVE-L01-01 (station_id=7) :
+    MA7           MAE=0.6459  RMSE=0.8627  MAPE=8.28%  (n=125)
+    ES Holt       MAE=0.6207  RMSE=0.8084  MAPE=7.99%  (n=127)
+
+  FRA-AOI-L01-01 (station_id=8) :
+    MA7           MAE=0.7405  RMSE=0.9844  MAPE=9.60%  (n=125)
+    ES Holt       MAE=0.6929  RMSE=0.9175  MAPE=9.00%  (n=127)
+
+  SFX-PLM-PROG-01 (station_id=9) :
+    MA7           MAE=0.7856  RMSE=1.0012  MAPE=10.32%  (n=125)
+    ES Holt       MAE=0.7354  RMSE=0.9315  MAPE=9.62%  (n=127)
+
+  SFX-PLM-ASSY-01 (station_id=10) :
+    MA7           MAE=0.8309  RMSE=1.0574  MAPE=10.43%  (n=125)
+    ES Holt       MAE=0.7900  RMSE=0.9851  MAPE=9.89%  (n=127)
+
+── Prévisions J+1 ──
+
+  SF-SPI-L01-01         [2026-05-11]  Réel=8.920%  MA7=7.753%  ES=7.959%  Écart=13.1%  → meilleur : ES Holt
+  HDR-MLD-L01-01        [2026-05-11]  Réel=7.380%  MA7=8.269%  ES=8.044%  Écart=12.0%  → meilleur : ES Holt
+  HDR-MLD-L01-02        [2026-05-11]  Réel=8.910%  MA7=7.679%  ES=7.887%  Écart=13.8%  → meilleur : ES Holt
+  FRA-PP-L01-01         [2026-05-11]  Réel=8.130%  MA7=8.019%  ES=7.853%  Écart=1.4%  → meilleur : MA7
+  FRA-PP-L01-02         [2026-05-11]  Réel=7.320%  MA7=7.704%  ES=7.919%  Écart=5.2%  → meilleur : MA7
+  FRA-PP-L01-03         [2026-05-11]  Réel=7.860%  MA7=7.767%  ES=8.155%  Écart=1.2%  → meilleur : MA7
+  FRA-OVE-L01-01        [2026-05-11]  Réel=7.580%  MA7=7.871%  ES=8.081%  Écart=3.8%  → meilleur : MA7
+  FRA-AOI-L01-01        [2026-05-11]  Réel=7.920%  MA7=8.047%  ES=7.958%  Écart=1.6%  → meilleur : ES Holt
+  SFX-PLM-PROG-01       [2026-05-11]  Réel=8.300%  MA7=7.589%  ES=7.855%  Écart=8.6%  → meilleur : ES Holt
+  SFX-PLM-ASSY-01       [2026-05-11]  Réel=7.120%  MA7=7.844%  ES=8.140%  Écart=10.2%  → meilleur : MA7
+
+=================================================================

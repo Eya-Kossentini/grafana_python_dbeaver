@@ -327,3 +327,221 @@ print("  ✓ defect_station_distribution.png sauvegardé")
 # ─────────────────────────────────────────────────────────────────────────────
 engine.dispose()
 print("\n✅ Tous les graphiques générés et sauvegardés.")
+
+# ═════════════════════════════════════════════════════════════════════════════
+# EXPORT CSV + PostgreSQL — Z-Score Results
+# ═════════════════════════════════════════════════════════════════════════════
+
+import os
+os.makedirs("outputs_zscore_anomaly_detection/csv", exist_ok=True)
+
+print("\n→ Export CSV et PostgreSQL (Z-Score)...")
+
+# ── OEE ──────────────────────────────────────────────────────────────────────
+# df_oee est déjà calculé avec z_score et severity plus haut dans le script
+zscore_oee_cols = [
+    "production_day", "station_id", "station_name",
+    "oee_pct", "z_score", "severity"
+]
+zscore_oee_cols = [c for c in zscore_oee_cols if c in df_oee.columns]
+
+df_oee[zscore_oee_cols].to_csv(
+    "outputs_zscore_anomaly_detection/csv/zscore_oee_all.csv", index=False
+)
+print("  ✓ zscore_oee_all.csv")
+
+df_oee[df_oee["severity"] != "normal"][zscore_oee_cols].to_csv(
+    "outputs_zscore_anomaly_detection/csv/zscore_oee_anomalies.csv", index=False
+)
+print("  ✓ zscore_oee_anomalies.csv")
+
+# Export PostgreSQL
+df_oee_sql = df_oee[zscore_oee_cols].copy()
+df_oee_sql["kpi_name"] = "oee_pct"
+df_oee_sql = df_oee_sql.rename(columns={"oee_pct": "kpi_value"})
+
+engine2 = create_engine("postgresql+psycopg2://postgres:admin123@localhost:5435/postgres")
+df_oee_sql.to_sql("zscore_results", engine2, if_exists="replace", index=False)
+print("  ✓ table zscore_results (OEE) chargée en base")
+# ── Downtime ─────────────────────────────────────────────────────────────────
+zscore_dt_cols_csv = [
+    "production_day", "station_id", "station_name",
+    "downtime_minutes", "downtime_type", "z_score", "severity"
+]
+zscore_dt_cols_csv = [c for c in zscore_dt_cols_csv if c in df_dt.columns]
+
+# Ajouter severity si absente
+if "severity" not in df_dt.columns:
+    df_dt["severity"] = "normal"
+    df_dt.loc[df_dt["z_score"] > 2, "severity"] = "warning"
+    df_dt.loc[df_dt["z_score"] > 3, "severity"] = "critical"
+
+# CSV — garde downtime_type (utile pour analyse)
+df_dt[zscore_dt_cols_csv].to_csv(
+    "outputs_zscore_anomaly_detection/csv/zscore_downtime_all.csv", index=False
+)
+print("  ✓ zscore_downtime_all.csv")
+
+df_dt[df_dt["severity"] != "normal"][zscore_dt_cols_csv].to_csv(
+    "outputs_zscore_anomaly_detection/csv/zscore_downtime_anomalies.csv", index=False
+)
+print("  ✓ zscore_downtime_anomalies.csv")
+
+# PostgreSQL — supprimer downtime_type (colonne hors schéma zscore_results)
+zscore_dt_cols_sql = [
+    "production_day", "station_id", "station_name",
+    "z_score", "severity"
+]
+zscore_dt_cols_sql = [c for c in zscore_dt_cols_sql if c in df_dt.columns]
+
+df_dt_sql = df_dt[zscore_dt_cols_sql].copy()
+df_dt_sql["kpi_name"]  = "downtime_minutes"
+df_dt_sql["kpi_value"] = df_dt["downtime_minutes"].values
+
+df_dt_sql.to_sql("zscore_results", engine2, if_exists="append", index=False)
+print("  ✓ table zscore_results (Downtime) appendée")
+
+# ── Defect Rate ───────────────────────────────────────────────────────────────
+zscore_def_cols = [
+    "production_day", "station_id", "station_name",
+    "defect_rate_pct", "z_score", "severity"
+]
+zscore_def_cols = [c for c in zscore_def_cols if c in df_def.columns]
+
+df_def[zscore_def_cols].to_csv(
+    "outputs_zscore_anomaly_detection/csv/zscore_defect_all.csv", index=False
+)
+print("  ✓ zscore_defect_all.csv")
+
+df_def[df_def["severity"] != "normal"][zscore_def_cols].to_csv(
+    "outputs_zscore_anomaly_detection/csv/zscore_defect_anomalies.csv", index=False
+)
+print("  ✓ zscore_defect_anomalies.csv")
+
+df_def_sql = df_def[zscore_def_cols].copy()
+df_def_sql["kpi_name"] = "defect_rate_pct"
+df_def_sql = df_def_sql.rename(columns={"defect_rate_pct": "kpi_value"})
+df_def_sql.to_sql("zscore_results", engine2, if_exists="append", index=False)
+print("  ✓ table zscore_results (Defect Rate) appendée")
+
+engine2.dispose()
+print("\n✅ Exports Z-Score terminés.")
+
+# ═════════════════════════════════════════════════════════════════════════════
+# RAPPORT TEXTE — Z-Score
+# ═════════════════════════════════════════════════════════════════════════════
+
+import os
+os.makedirs("outputs_zscore_anomaly_detection/reports", exist_ok=True)
+
+print("\n→ Génération rapport texte (Z-Score)...")
+
+report_path = "outputs_zscore_anomaly_detection/reports/zscore_report.txt"
+with open(report_path, "w", encoding="utf-8") as f:
+
+    f.write("=" * 65 + "\n")
+    f.write("   RAPPORT Z-SCORE ANOMALY DETECTION\n")
+    f.write("=" * 65 + "\n\n")
+
+    f.write(f"  Période OEE      : "
+            f"{df_oee['production_day'].min().date()} → "
+            f"{df_oee['production_day'].max().date()}\n")
+    f.write(f"  Période Downtime : "
+            f"{df_dt['production_day'].min().date()} → "
+            f"{df_dt['production_day'].max().date()}\n")
+    f.write(f"  Période Defect   : "
+            f"{df_def['production_day'].min().date()} → "
+            f"{df_def['production_day'].max().date()}\n\n")
+
+    # ── OEE ──────────────────────────────────────────────────────────────────
+    f.write("── OEE (Z-Score, direction=low) ──\n\n")
+    for station in sorted(df_oee["station_name"].unique()):
+        grp    = df_oee[df_oee["station_name"] == station]
+        n_warn = (grp["severity"] == "warning").sum()
+        n_crit = (grp["severity"] == "critical").sum()
+        mean_v = grp["oee_pct"].mean()
+        std_v  = grp["oee_pct"].std()
+        min_z  = grp["z_score"].min() if "z_score" in grp.columns else float("nan")
+        f.write(
+            f"  {station:<22}  moy={mean_v:.1f}%  σ={std_v:.1f}  "
+            f"z_min={min_z:.2f}  warning={n_warn}  critical={n_crit}\n"
+        )
+
+    anom_oee = df_oee[df_oee["severity"] != "normal"].sort_values(
+        ["station_name", "production_day"]
+    )
+    if not anom_oee.empty:
+        f.write("\n  Détail anomalies OEE :\n")
+        for _, row in anom_oee.iterrows():
+            z = row["z_score"] if "z_score" in row else float("nan")
+            f.write(
+                f"    {str(row['production_day'].date()):<12}  "
+                f"{str(row.get('station_name','')):<22}  "
+                f"OEE={row['oee_pct']:.1f}%  "
+                f"z={z:.2f}  "
+                f"sévérité={row['severity']}\n"
+            )
+
+    # ── Downtime ─────────────────────────────────────────────────────────────
+    f.write(f"\n── Downtime (Z-Score > 3) ──\n\n")
+    f.write(
+        f"  Moyenne={mean_dt:.1f} min  σ={std_dt:.1f}  "
+        f"Seuil z=3 → {mean_dt + 3*std_dt:.1f} min  "
+        f"Anomalies={len(anomalies_dt)}\n\n"
+    )
+    if not anomalies_dt.empty:
+        f.write("  Par type de downtime :\n")
+        for dtype, count in anomalies_dt["downtime_type"].value_counts().items():
+            f.write(f"    {dtype:<30}  {count}\n")
+        f.write("\n  Détail anomalies Downtime :\n")
+        for _, row in anomalies_dt.sort_values(
+            "downtime_minutes", ascending=False
+        ).iterrows():
+            z = row["z_score"] if "z_score" in row else float("nan")
+            f.write(
+                f"    {str(row['production_day'].date()):<12}  "
+                f"{str(row.get('station_name','')):<22}  "
+                f"{row['downtime_minutes']:.0f} min  "
+                f"z={z:.2f}  "
+                f"type={row.get('downtime_type','')}\n"
+            )
+
+    # ── Defect Rate ───────────────────────────────────────────────────────────
+    f.write(f"\n── Defect Rate (Z-Score, direction=high) ──\n\n")
+    f.write(
+        f"  Vue agrégée — moy={mean_def:.2f}%  σ={std_def:.2f}  "
+        f"Seuil warning z>2 → {mean_def+2*std_def:.2f}%  "
+        f"Seuil critical z>3 → {mean_def+3*std_def:.2f}%\n"
+        f"  Anomalies agrégées — warning={len(warn_d)}  critical={len(crit_d)}\n\n"
+    )
+    f.write("  Anomalies par station :\n")
+    for station in sorted(df_def["station_name"].unique()):
+        grp    = df_def[df_def["station_name"] == station]
+        n_warn = (grp["severity"] == "warning").sum()
+        n_crit = (grp["severity"] == "critical").sum()
+        mean_s = grp["defect_rate_pct"].mean()
+        std_s  = grp["defect_rate_pct"].std()
+        f.write(
+            f"    {station:<22}  moy={mean_s:.2f}%  σ={std_s:.3f}  "
+            f"warning={n_warn}  critical={n_crit}\n"
+        )
+
+    anom_def_detail = df_def[df_def["severity"] != "normal"].sort_values(
+        ["station_name", "production_day"]
+    )
+    if not anom_def_detail.empty:
+        f.write("\n  Détail anomalies Defect Rate :\n")
+        for _, row in anom_def_detail.iterrows():
+            z = row["z_score"] if "z_score" in row else float("nan")
+            f.write(
+                f"    {str(row['production_day'].date()):<12}  "
+                f"{str(row.get('station_name','')):<22}  "
+                f"defect={row['defect_rate_pct']:.2f}%  "
+                f"z={z:.2f}  "
+                f"sévérité={row['severity']}\n"
+            )
+
+    f.write("\n" + "=" * 65 + "\n")
+
+print(f"  ✓ {report_path}")
+print("\n✅ Exports Z-Score terminés.")

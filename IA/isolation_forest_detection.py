@@ -336,3 +336,105 @@ print(
 engine.dispose()
 
 print("\n✅ Isolation Forest completed successfully.")
+
+# Ajouter à la fin de chaque script Python, exemple pour isolation_forest
+from sqlalchemy import text
+
+df_model[output_cols].to_sql(
+    "iforest_results",
+    engine,
+    if_exists="replace",
+    index=False
+)
+print("✓ iforest_results chargé en base")
+
+# ═════════════════════════════════════════════════════════════════════════════
+# RAPPORT TEXTE — Isolation Forest
+# ═════════════════════════════════════════════════════════════════════════════
+
+import os
+os.makedirs("outputs_isolation_forest/reports", exist_ok=True)
+
+print("\n→ Génération rapport texte (Isolation Forest)...")
+
+report_path = "outputs_isolation_forest/reports/iforest_report.txt"
+with open(report_path, "w", encoding="utf-8") as f:
+
+    f.write("=" * 65 + "\n")
+    f.write("   RAPPORT ISOLATION FOREST ANOMALY DETECTION\n")
+    f.write("=" * 65 + "\n\n")
+
+    f.write(f"  Modèle            : IsolationForest\n")
+    f.write(f"  n_estimators      : 200\n")
+    f.write(f"  contamination     : 0.03 (3%)\n")
+    f.write(f"  Features utilisées: {features}\n")
+    f.write(f"  Total observations: {len(df_model)}\n")
+    f.write(f"  Total anomalies   : {len(anomalies)}\n")
+    f.write(
+        f"  Taux anomalies    : "
+        f"{round(len(anomalies)/len(df_model)*100, 2)}%\n"
+    )
+    f.write(f"  Période           : "
+            f"{df_model['production_day'].min().date()} → "
+            f"{df_model['production_day'].max().date()}\n\n")
+
+    # ── Résumé par station ────────────────────────────────────────────────────
+    f.write("── Anomalies par station ──\n\n")
+    for station in sorted(df_model["station_name"].unique()):
+        grp        = df_model[df_model["station_name"] == station]
+        n_total    = len(grp)
+        n_anom     = grp["is_anomaly"].sum()
+        rate       = n_anom / n_total * 100 if n_total > 0 else 0
+        score_min  = grp.loc[grp["is_anomaly"], "anomaly_score"].min() \
+                     if n_anom > 0 else float("nan")
+        f.write(
+            f"  {station:<22}  total={n_total:>4}  "
+            f"anomalies={n_anom:>3}  "
+            f"taux={rate:.1f}%  "
+            f"score_min={score_min:.4f}\n"
+        )
+
+    # ── Top 20 anomalies les plus sévères ────────────────────────────────────
+    f.write("\n── Top 20 anomalies (score le plus bas = plus anormal) ──\n\n")
+    top20 = anomalies.sort_values("anomaly_score").head(20)
+    for _, row in top20.iterrows():
+        f.write(
+            f"  {str(row['production_day'].date()):<12}  "
+            f"{str(row.get('station_name','')):<22}  "
+            f"score={row['anomaly_score']:.4f}  "
+            f"OEE={row.get('oee_pct', float('nan')):.1f}%  "
+            f"defect={row.get('defect_rate_pct', float('nan')):.2f}%  "
+            f"downtime={row.get('downtime_minutes', float('nan')):.0f}min\n"
+        )
+
+    # ── Résumé par feature (valeurs moyennes anomalies vs normal) ────────────
+    f.write("\n── Profil moyen : anomalies vs normal ──\n\n")
+    normal_df = df_model[df_model["is_anomaly"] == False]
+    anom_df   = df_model[df_model["is_anomaly"] == True]
+
+    f.write(f"  {'Feature':<25}  {'Normal (moy)':<15}  {'Anomalie (moy)':<15}  Écart\n")
+    f.write("  " + "-" * 60 + "\n")
+    for feat in features:
+        if feat in df_model.columns:
+            mean_normal = normal_df[feat].mean()
+            mean_anom   = anom_df[feat].mean()
+            ecart       = mean_anom - mean_normal
+            f.write(
+                f"  {feat:<25}  {mean_normal:<15.3f}  "
+                f"{mean_anom:<15.3f}  "
+                f"{'↑' if ecart > 0 else '↓'}{abs(ecart):.3f}\n"
+            )
+
+    # ── Distribution temporelle ───────────────────────────────────────────────
+    f.write("\n── Anomalies par mois ──\n\n")
+    anomalies_copy = anomalies.copy()
+    anomalies_copy["month"] = anomalies_copy["production_day"].dt.to_period("M").astype(str)
+    monthly = anomalies_copy.groupby("month").size()
+    for month, count in monthly.items():
+        bar = "█" * count
+        f.write(f"  {month}  {bar}  ({count})\n")
+
+    f.write("\n" + "=" * 65 + "\n")
+
+print(f"  ✓ {report_path}")
+print("\n✅ Isolation Forest completed successfully.")

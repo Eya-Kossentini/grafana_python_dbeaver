@@ -1,0 +1,105 @@
+=================================================================
+   RAPPORT IQR ANOMALY DETECTION
+=================================================================
+
+  Période OEE      : 2025-11-13 → 2026-05-11
+  Période Downtime : 2025-11-13 → 2026-05-11
+  Période Defect   : 2025-11-12 → 2026-05-10
+
+── OEE (IQR 1.0× + plancher 50%) ──
+
+  FRA-AOI-L01-01          moy=69.4%  Q1=55.4  Q3=85.3  IQR=29.9  seuil=25.4%  anomalies=1
+  FRA-OVE-L01-01          moy=69.0%  Q1=56.0  Q3=83.2  IQR=27.2  seuil=28.8%  anomalies=0
+  FRA-PP-L01-01           moy=66.4%  Q1=55.6  Q3=76.6  IQR=21.0  seuil=34.6%  anomalies=3
+  FRA-PP-L01-02           moy=67.8%  Q1=57.7  Q3=77.7  IQR=20.0  seuil=37.7%  anomalies=2
+  FRA-PP-L01-03           moy=66.7%  Q1=53.7  Q3=79.0  IQR=25.3  seuil=28.4%  anomalies=1
+  HDR-MLD-L01-01          moy=68.4%  Q1=55.8  Q3=82.2  IQR=26.4  seuil=29.3%  anomalies=0
+  HDR-MLD-L01-02          moy=68.3%  Q1=56.0  Q3=79.7  IQR=23.6  seuil=32.4%  anomalies=3
+  SF-SPI-L01-01           moy=69.6%  Q1=58.0  Q3=85.8  IQR=27.8  seuil=30.3%  anomalies=3
+  SFX-PLM-ASSY-01         moy=67.1%  Q1=54.0  Q3=80.8  IQR=26.8  seuil=27.2%  anomalies=2
+  SFX-PLM-PROG-01         moy=65.1%  Q1=53.7  Q3=76.2  IQR=22.5  seuil=31.2%  anomalies=1
+
+  Détail anomalies OEE :
+    2026-01-16    FRA-AOI-L01-01          OEE=24.2%  seuil=25.4%
+    2025-11-19    FRA-PP-L01-01           OEE=30.5%  seuil=34.6%
+    2025-12-29    FRA-PP-L01-01           OEE=32.7%  seuil=34.6%
+    2026-01-21    FRA-PP-L01-01           OEE=20.2%  seuil=34.6%
+    2026-02-17    FRA-PP-L01-02           OEE=34.8%  seuil=37.7%
+    2026-04-01    FRA-PP-L01-02           OEE=33.7%  seuil=37.7%
+    2026-02-10    FRA-PP-L01-03           OEE=27.6%  seuil=28.4%
+    2026-01-07    HDR-MLD-L01-02          OEE=18.9%  seuil=32.4%
+    2026-02-19    HDR-MLD-L01-02          OEE=31.9%  seuil=32.4%
+    2026-03-12    HDR-MLD-L01-02          OEE=24.4%  seuil=32.4%
+    2025-12-02    SF-SPI-L01-01           OEE=26.5%  seuil=30.3%
+    2026-03-13    SF-SPI-L01-01           OEE=22.4%  seuil=30.3%
+    2026-04-21    SF-SPI-L01-01           OEE=29.5%  seuil=30.3%
+    2026-02-13    SFX-PLM-ASSY-01         OEE=25.5%  seuil=27.2%
+    2026-03-30    SFX-PLM-ASSY-01         OEE=19.7%  seuil=27.2%
+    2026-02-25    SFX-PLM-PROG-01         OEE=24.4%  seuil=31.2%
+
+── Downtime (IQR 3×) ──
+
+  Q1=17.2 min  Q3=43.8 min  IQR=26.6  Seuil=123.6 min  Anomalies=39
+
+  Par type de downtime :
+    Breakdown                       24
+    Part Shortage                   15
+
+  Détail anomalies Downtime :
+    2026-02-04    FRA-PP-L01-01           227 min  type=Part Shortage
+    2025-11-24    FRA-PP-L01-03           191 min  type=Breakdown
+    2026-04-15    FRA-PP-L01-02           186 min  type=Part Shortage
+    2026-01-14    HDR-MLD-L01-01          185 min  type=Part Shortage
+    2026-04-03    SFX-PLM-PROG-01         179 min  type=Breakdown
+    2025-12-18    FRA-OVE-L01-01          161 min  type=Breakdown
+    2026-03-12    SFX-PLM-PROG-01         158 min  type=Breakdown
+    2026-03-10    FRA-PP-L01-02           154 min  type=Part Shortage
+    2026-01-15    SFX-PLM-ASSY-01         153 min  type=Breakdown
+    2026-02-17    SFX-PLM-ASSY-01         152 min  type=Breakdown
+    2026-03-03    HDR-MLD-L01-02          150 min  type=Breakdown
+    2026-05-05    FRA-PP-L01-03           150 min  type=Breakdown
+    2026-02-09    FRA-PP-L01-01           149 min  type=Breakdown
+    2025-11-26    FRA-PP-L01-03           147 min  type=Breakdown
+    2026-01-27    SF-SPI-L01-01           145 min  type=Breakdown
+    2026-02-23    FRA-AOI-L01-01          145 min  type=Part Shortage
+    2026-02-02    FRA-OVE-L01-01          142 min  type=Part Shortage
+    2026-02-25    FRA-PP-L01-01           141 min  type=Breakdown
+    2026-05-11    HDR-MLD-L01-02          140 min  type=Breakdown
+    2026-04-22    HDR-MLD-L01-01          136 min  type=Breakdown
+    2026-04-30    FRA-PP-L01-03           136 min  type=Part Shortage
+    2026-01-16    FRA-AOI-L01-01          136 min  type=Breakdown
+    2025-11-27    FRA-AOI-L01-01          136 min  type=Part Shortage
+    2025-12-17    HDR-MLD-L01-01          135 min  type=Breakdown
+    2026-02-18    HDR-MLD-L01-02          133 min  type=Breakdown
+    2026-04-10    SFX-PLM-ASSY-01         133 min  type=Part Shortage
+    2025-11-20    HDR-MLD-L01-01          132 min  type=Breakdown
+    2026-01-29    FRA-AOI-L01-01          131 min  type=Breakdown
+    2026-02-16    HDR-MLD-L01-02          131 min  type=Part Shortage
+    2026-01-06    SFX-PLM-ASSY-01         129 min  type=Breakdown
+    2026-03-16    FRA-PP-L01-02           129 min  type=Part Shortage
+    2026-05-06    FRA-PP-L01-03           128 min  type=Part Shortage
+    2026-04-15    SFX-PLM-PROG-01         126 min  type=Breakdown
+    2026-01-30    SFX-PLM-ASSY-01         126 min  type=Breakdown
+    2026-05-01    FRA-PP-L01-03           125 min  type=Breakdown
+    2026-01-27    SFX-PLM-PROG-01         125 min  type=Breakdown
+    2026-05-07    HDR-MLD-L01-01          125 min  type=Part Shortage
+    2026-02-06    FRA-OVE-L01-01          125 min  type=Part Shortage
+    2026-03-31    FRA-PP-L01-01           124 min  type=Part Shortage
+
+── Defect Rate (IQR 1.5×) ──
+
+  Vue agrégée — Q1=7.78%  Q3=8.16%  IQR=0.38  Seuil=8.73%  Anomalies agrégées=0
+
+  Anomalies par station :
+    FRA-AOI-L01-01          Q1=7.47  Q3=8.47  IQR=1.003  seuil=9.97%  anomalies=2
+    FRA-OVE-L01-01          Q1=7.38  Q3=8.41  IQR=1.035  seuil=9.96%  anomalies=2
+    FRA-PP-L01-01           Q1=7.44  Q3=8.67  IQR=1.237  seuil=10.53%  anomalies=2
+    FRA-PP-L01-02           Q1=7.23  Q3=8.53  IQR=1.305  seuil=10.49%  anomalies=1
+    FRA-PP-L01-03           Q1=7.49  Q3=8.55  IQR=1.065  seuil=10.15%  anomalies=3
+    HDR-MLD-L01-01          Q1=7.30  Q3=8.59  IQR=1.293  seuil=10.53%  anomalies=0
+    HDR-MLD-L01-02          Q1=7.47  Q3=8.71  IQR=1.232  seuil=10.55%  anomalies=1
+    SF-SPI-L01-01           Q1=7.30  Q3=8.71  IQR=1.410  seuil=10.83%  anomalies=0
+    SFX-PLM-ASSY-01         Q1=7.34  Q3=8.57  IQR=1.220  seuil=10.40%  anomalies=1
+    SFX-PLM-PROG-01         Q1=7.27  Q3=8.49  IQR=1.218  seuil=10.31%  anomalies=0
+
+=================================================================

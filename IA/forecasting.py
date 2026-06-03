@@ -571,9 +571,131 @@ if __name__ == "__main__":
     print("  [4/4] Tableau prévisions J+1...")
     plot_next_day_summary(next_day_preds)
 
-    # ── Rapport + export ─────────────────────────────────────────────────────
+    # ── Rapport + export CSV ─────────────────────────────────────────────────
     print_forecast_report(metrics, next_day_preds)
     print("→ Export CSV...")
     export_results(df_feat, next_day_preds, metrics, window=args.window)
 
+    # ── Export PostgreSQL ─────────────────────────────────────────────────────
+    print("\n→ Export PostgreSQL (forecast_results)...")
+
+    engine_export = create_engine(
+        "postgresql+psycopg2://postgres:admin123@localhost:5435/postgres"
+    )
+
+    # ── Table 1 : forecast_results (séries complètes avec prévisions) ────────
+    parts_sql = []
+    for sid in df_feat["station_id"].unique():
+        g = (
+            df_feat[df_feat["station_id"] == sid]
+            .copy()
+            .sort_values("production_day")
+            .set_index("production_day")
+        )
+        g["ma_forecast"] = forecast_moving_average(g["defect_rate_pct"], window=args.window)
+        g["es_forecast"] = forecast_exponential_smoothing(g["defect_rate_pct"])
+        g["ma_error"]    = g["defect_rate_pct"] - g["ma_forecast"]
+        g["es_error"]    = g["defect_rate_pct"] - g["es_forecast"]
+        parts_sql.append(g.reset_index())
+
+    df_full_sql = pd.concat(parts_sql, ignore_index=True)
+
+    # Colonnes à exporter vers forecast_results
+    forecast_cols = [
+        "production_day", "station_id", "station_name",
+        "defect_rate_pct", "ma_forecast", "es_forecast",
+        "ma_error", "es_error"
+    ]
+    forecast_cols = [c for c in forecast_cols if c in df_full_sql.columns]
+
+    df_full_sql[forecast_cols].to_sql(
+        "forecast_results",
+        engine_export,
+        if_exists="replace",
+        index=False
+    )
+    print("  ✓ table forecast_results chargée en base")
+
+    # ── Table 2 : forecast_next_day (prévisions J+1 uniquement) ─────────────
+    df_next_sql = pd.DataFrame(next_day_preds)
+
+    df_next_sql.to_sql(
+        "forecast_next_day",
+        engine_export,
+        if_exists="replace",
+        index=False
+    )
+    print("  ✓ table forecast_next_day chargée en base")
+
+    # ── Table 3 : forecast_metrics (MAE / RMSE / MAPE par station+modèle) ───
+    df_metrics_sql = pd.DataFrame(metrics)
+    df_metrics_sql = df_metrics_sql[df_metrics_sql["n"] > 0]
+
+    df_metrics_sql.to_sql(
+        "forecast_metrics",
+        engine_export,
+        if_exists="replace",
+        index=False
+    )
+    print("  ✓ table forecast_metrics chargée en base")
+
+    engine_export.dispose()
+
+    # ── Rapport texte complet ─────────────────────────────────────────────────
+    print("\n→ Export rapport texte...")
+    os.makedirs("outputs_forecasting_prevision/reports", exist_ok=True)
+
+    report_path = "outputs_forecasting_prevision/reports/forecast_report.txt"
+    with open(report_path, "w", encoding="utf-8") as f:
+
+        f.write("=" * 65 + "\n")
+        f.write("   RAPPORT PRÉVISION DEFECT RATE J+1\n")
+        f.write("=" * 65 + "\n\n")
+
+        f.write(f"  Fenêtre Moving Average : {args.window} jours\n")
+        f.write(f"  Stations analysées     : {df_feat['station_id'].nunique()}\n")
+        f.write(f"  Période               : "
+                f"{df_feat['production_day'].min().date()} → "
+                f"{df_feat['production_day'].max().date()}\n\n")
+
+        # Métriques
+        df_m = pd.DataFrame(metrics)
+        if not df_m.empty:
+            f.write("── Métriques de performance ──\n\n")
+            for sid in sorted(df_m["station_id"].unique()):
+                sname = df_feat[df_feat["station_id"] == sid]["station_name"].iloc[0] \
+                        if "station_name" in df_feat.columns else f"Station {sid}"
+                f.write(f"  {sname} (station_id={sid}) :\n")
+                for _, row in df_m[df_m["station_id"] == sid].iterrows():
+                    f.write(
+                        f"    {row['model']:<12}  "
+                        f"MAE={row['MAE']:.4f}  "
+                        f"RMSE={row['RMSE']:.4f}  "
+                        f"MAPE={row['MAPE']:.2f}%  "
+                        f"(n={row['n']})\n"
+                    )
+                f.write("\n")
+
+        # Prévisions J+1
+        f.write("── Prévisions J+1 ──\n\n")
+        for p in next_day_preds:
+            sname = df_feat[df_feat["station_id"] == p["station_id"]]["station_name"].iloc[0] \
+                    if "station_name" in df_feat.columns else f"Station {p['station_id']}"
+            better = "MA7" if abs(p["ma_pred"] - p["last_actual"]) <= \
+                              abs(p["es_pred"] - p["last_actual"]) else "ES Holt"
+            ecart     = abs(p["ma_pred"] - p["last_actual"])
+            ecart_pct = ecart / p["last_actual"] * 100 if p["last_actual"] > 0 else 0
+            alerte    = " ⚠ ALERTE > 20% d'écart" if ecart_pct > 20 else ""
+            f.write(
+                f"  {sname:<20}  [{p['date_J1']}]  "
+                f"Réel={p['last_actual']:.3f}%  "
+                f"MA7={p['ma_pred']:.3f}%  "
+                f"ES={p['es_pred']:.3f}%  "
+                f"Écart={ecart_pct:.1f}%  "
+                f"→ meilleur : {better}{alerte}\n"
+            )
+
+        f.write("\n" + "=" * 65 + "\n")
+
+    print(f"  ✓ {report_path}")
     print("\n✅ Prévision terminée.\n")

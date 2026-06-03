@@ -1,16 +1,19 @@
 """
 Détection d'anomalies KPI industriels — Méthode IQR
 =====================================================
-IQR (Interquartile Range) : détection robuste sans hypothèse de normalité
-KPIs : OEE, Downtime, Defect Rate
 """
 
+import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib.patches as mpatches
 import numpy as np
 from sqlalchemy import create_engine
+
+os.makedirs("outputs_iqr_anomaly_detection/figures", exist_ok=True)
+os.makedirs("outputs_iqr_anomaly_detection/csv",     exist_ok=True)
+os.makedirs("outputs_iqr_anomaly_detection/reports", exist_ok=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Connexion
@@ -26,44 +29,33 @@ COLOR_LINE    = "#4A90D9"
 COLOR_WARNING = "#F5A623"
 COLOR_CRITICAL= "#D0021B"
 COLOR_MA      = "#7ED321"
-COLOR_IQR     = "#9B59B6"  # violet pour les bornes IQR
+COLOR_IQR     = "#9B59B6"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Fonction IQR générique
+# Fonctions IQR
 # ─────────────────────────────────────────────────────────────────────────────
 
 def add_iqr_severity(df, col, direction="both", multiplier=1.5):
-    """
-    Ajoute les colonnes Q1, Q3, IQR, lower_bound, upper_bound, severity.
-    direction :
-        'low'  → anomalie uniquement si valeur < lower_bound  (OEE)
-        'high' → anomalie uniquement si valeur > upper_bound  (Defect, Downtime)
-        'both' → les deux côtés
-    """
     df = df.copy()
     Q1  = df[col].quantile(0.25)
     Q3  = df[col].quantile(0.75)
     IQR = Q3 - Q1
-
     lower = Q1 - multiplier * IQR
     upper = Q3 + multiplier * IQR
-
     df["Q1"]          = Q1
     df["Q3"]          = Q3
     df["IQR"]         = IQR
     df["lower_bound"] = lower
     df["upper_bound"] = upper
     df["severity"]    = "normal"
-
     if direction in ("low", "both"):
         df.loc[df[col] < lower, "severity"] = "anomaly_low"
     if direction in ("high", "both"):
         df.loc[df[col] > upper, "severity"] = "anomaly_high"
-
     return df, Q1, Q3, IQR, lower, upper
 
+
 def add_iqr_severity_group(df, col, group_col, direction="both", multiplier=1.5):
-    """Applique IQR groupe par groupe (par station)."""
     parts = []
     for group_val, grp in df.groupby(group_col):
         grp = grp.copy()
@@ -72,24 +64,22 @@ def add_iqr_severity_group(df, col, group_col, direction="both", multiplier=1.5)
         IQR = Q3 - Q1
         lower = Q1 - multiplier * IQR
         upper = Q3 + multiplier * IQR
-
         grp["Q1"]          = Q1
         grp["Q3"]          = Q3
         grp["IQR"]         = IQR
         grp["lower_bound"] = lower
         grp["upper_bound"] = upper
         grp["severity"]    = "normal"
-
         if direction in ("low", "both"):
             grp.loc[grp[col] < lower, "severity"] = "anomaly_low"
         if direction in ("high", "both"):
             grp.loc[grp[col] > upper, "severity"] = "anomaly_high"
-
         parts.append(grp)
     return pd.concat(parts, ignore_index=True)
 
+
 # ═════════════════════════════════════════════════════════════════════════════
-# 1.  OEE — IQR par station (on cherche les BAISSES → direction="low")
+# 1.  OEE
 # ═════════════════════════════════════════════════════════════════════════════
 
 print("→ Génération OEE (IQR)...")
@@ -99,22 +89,17 @@ df_oee.columns = df_oee.columns.str.strip()
 df_oee["production_day"] = pd.to_datetime(df_oee["production_day"])
 df_oee = df_oee.sort_values("production_day").reset_index(drop=True)
 
-# APRÈS — 1.0×IQR + plancher absolu à 50%
 df_oee = add_iqr_severity_group(df_oee, "oee_pct", "station_name",
                                  direction="low", multiplier=1.0)
 
-# Appliquer le seuil absolu : toute valeur < 50% est aussi une anomalie
 for station in df_oee["station_name"].unique():
-    mask = df_oee["station_name"] == station
+    mask    = df_oee["station_name"] == station
     iqr_val = df_oee.loc[mask, "IQR"].iloc[0]
     lb      = df_oee.loc[mask, "lower_bound"].iloc[0]
-
     if iqr_val < 10:
-        # IQR trop compressé → appliquer le plancher absolu
         effective_lb = max(lb, 50.0)
         df_oee.loc[mask, "lower_bound"] = effective_lb
         df_oee.loc[mask & (df_oee["oee_pct"] < effective_lb), "severity"] = "anomaly_low"
-    # sinon : garder le seuil IQR naturel, ne rien modifier
 
 stations = sorted(df_oee["station_name"].unique())
 n = len(stations)
@@ -123,37 +108,30 @@ fig, axes = plt.subplots(nrows=n, ncols=1, figsize=(16, 4 * n), sharex=False)
 if n == 1:
     axes = [axes]
 
-fig.suptitle("IQR Anomaly Detection — OEE par Station", fontsize=16, fontweight="bold", y=1.001)
+fig.suptitle("IQR Anomaly Detection — OEE par Station",
+             fontsize=16, fontweight="bold", y=1.001)
 
 for ax, station in zip(axes, stations):
-    grp      = df_oee[df_oee["station_name"] == station].copy().sort_values("production_day")
+    grp       = df_oee[df_oee["station_name"] == station].copy().sort_values("production_day")
     anomalies = grp[grp["severity"] == "anomaly_low"]
     grp["ma7"] = grp["oee_pct"].rolling(7, min_periods=1).mean()
 
     lower_b = grp["lower_bound"].iloc[0]
-    
-    # Adapter le label pour indiquer la source du seuil
     iqr_val = grp["IQR"].iloc[0]
-    label_seuil = (f"Seuil abs. 50% ({lower_b:.1f}%)" if iqr_val < 10
-                else f"Seuil IQR 1.0× ({lower_b:.1f}%)")
-
-    ax.axhline(lower_b, color=COLOR_CRITICAL, linewidth=1.2, linestyle="--",
-            label=label_seuil)
-
     Q1_v    = grp["Q1"].iloc[0]
     Q3_v    = grp["Q3"].iloc[0]
-    upper_b = grp["upper_bound"].iloc[0]
+
+    label_seuil = (f"Seuil abs. 50% ({lower_b:.1f}%)" if iqr_val < 10
+                   else f"Seuil IQR 1.0× ({lower_b:.1f}%)")
 
     ax.plot(grp["production_day"], grp["oee_pct"],
             color=COLOR_LINE, linewidth=1.2, alpha=0.7, label="OEE (%)")
     ax.plot(grp["production_day"], grp["ma7"],
             color=COLOR_MA, linewidth=1.5, linestyle="--", label="Moy. mobile 7j")
-
-    # Bande IQR normale [Q1, Q3]
-    ax.axhspan(Q1_v, Q3_v, alpha=0.10, color=COLOR_IQR, label=f"Zone IQR [Q1={Q1_v:.1f}, Q3={Q3_v:.1f}]")
-    # Borne basse
-    ax.axhline(lower_b, color=COLOR_CRITICAL, linewidth=1.2, linestyle="--",
-               label=f"Seuil bas IQR ({lower_b:.1f}%)")
+    ax.axhspan(Q1_v, Q3_v, alpha=0.10, color=COLOR_IQR,
+               label=f"Zone IQR [Q1={Q1_v:.1f}, Q3={Q3_v:.1f}]")
+    ax.axhline(lower_b, color=COLOR_CRITICAL, linewidth=1.2,
+               linestyle="--", label=label_seuil)
 
     if not anomalies.empty:
         ax.scatter(anomalies["production_day"], anomalies["oee_pct"],
@@ -163,8 +141,8 @@ for ax, station in zip(axes, stations):
     mean_v = grp["oee_pct"].mean()
     ax.set_title(
         f"Station : {station}  |  Moy={mean_v:.1f}%  "
-        f"Q1={Q1_v:.1f}  Q3={Q3_v:.1f}  IQR={grp['IQR'].iloc[0]:.1f}  "
-        f"Seuil bas={lower_b:.1f}%  Anomalies={len(anomalies)}",
+        f"Q1={Q1_v:.1f}  Q3={Q3_v:.1f}  IQR={iqr_val:.1f}  "
+        f"Seuil={lower_b:.1f}%  Anomalies={len(anomalies)}",
         fontsize=9, loc="left"
     )
     ax.set_ylabel("OEE (%)")
@@ -176,12 +154,12 @@ for ax, station in zip(axes, stations):
     ax.grid(axis="y", alpha=0.3)
 
 plt.tight_layout()
-plt.savefig("outputs_iqr_anomaly_detection/figures/iqr_oee_par_station.png", dpi=150, bbox_inches="tight")
+plt.savefig("outputs_iqr_anomaly_detection/figures/iqr_oee_par_station.png",
+            dpi=150, bbox_inches="tight")
 plt.show()
 print("  ✓ iqr_oee_par_station.png sauvegardé")
 
-# ── Heatmap OEE anomalies ────────────────────────────────────────────────────
-
+# Heatmap OEE
 df_oee["week"]       = df_oee["production_day"].dt.to_period("W").astype(str)
 df_oee["is_anomaly"] = (df_oee["severity"] != "normal").astype(int)
 
@@ -190,23 +168,27 @@ pivot = df_oee.pivot_table(
     values="is_anomaly", aggfunc="sum", fill_value=0
 )
 
-fig2, ax2 = plt.subplots(figsize=(max(14, len(pivot.columns) * 0.6), len(pivot) * 0.7 + 2))
+fig2, ax2 = plt.subplots(
+    figsize=(max(14, len(pivot.columns) * 0.6), len(pivot) * 0.7 + 2)
+)
 im = ax2.imshow(pivot.values, aspect="auto", cmap="YlOrRd",
                 interpolation="nearest", vmin=0, vmax=max(pivot.values.max(), 1))
 ax2.set_xticks(range(len(pivot.columns)))
 ax2.set_xticklabels(pivot.columns, rotation=60, ha="right", fontsize=7)
 ax2.set_yticks(range(len(pivot.index)))
 ax2.set_yticklabels(pivot.index, fontsize=9)
-ax2.set_title("Heatmap — Anomalies OEE IQR par Station × Semaine", fontsize=13, fontweight="bold")
+ax2.set_title("Heatmap — Anomalies OEE IQR par Station × Semaine",
+              fontsize=13, fontweight="bold")
 plt.colorbar(im, ax=ax2, label="Nb anomalies / semaine")
 plt.tight_layout()
-plt.savefig("outputs_iqr_anomaly_detection/figures/iqr_oee_heatmap.png", dpi=150, bbox_inches="tight")
+plt.savefig("outputs_iqr_anomaly_detection/figures/iqr_oee_heatmap.png",
+            dpi=150, bbox_inches="tight")
 plt.show()
 print("  ✓ iqr_oee_heatmap.png sauvegardé")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 2.  DOWNTIME — IQR global (on cherche les PICS → direction="high")
+# 2.  DOWNTIME
 # ═════════════════════════════════════════════════════════════════════════════
 
 print("→ Génération Downtime (IQR)...")
@@ -224,26 +206,20 @@ anomalies_dt = df_dt[df_dt["severity"] == "anomaly_high"]
 print(f"  Downtime — Q1={Q1_dt:.1f}  Q3={Q3_dt:.1f}  IQR={IQR_dt:.1f}  "
       f"Seuil 3×IQR={upper_dt:.1f} min  Anomalies={len(anomalies_dt)}")
 
-
-# ── 2a. Time series ──────────────────────────────────────────────────────────
 fig, ax = plt.subplots(figsize=(16, 6))
-
 ax.plot(df_dt["production_day"], df_dt["downtime_minutes"],
         color=COLOR_LINE, linewidth=1, alpha=0.7, label="Downtime (min)")
 ax.scatter(anomalies_dt["production_day"], anomalies_dt["downtime_minutes"],
            color=COLOR_CRITICAL, s=70, zorder=5,
            label=f"Anomalies IQR — n={len(anomalies_dt)}")
-
 ax.axhline(upper_dt, color=COLOR_CRITICAL, linewidth=1.5, linestyle="--",
            label=f"Seuil IQR Q3+3×IQR ({upper_dt:.0f} min)")
 ax.axhline(Q3_dt, color=COLOR_IQR, linewidth=1, linestyle=":",
            label=f"Q3 ({Q3_dt:.0f} min)")
 ax.axhline(Q1_dt, color=COLOR_MA, linewidth=1, linestyle=":",
            label=f"Q1 ({Q1_dt:.0f} min)")
-
 ax.fill_between(df_dt["production_day"], Q1_dt, Q3_dt,
                 alpha=0.08, color=COLOR_IQR, label="Zone IQR normale")
-
 ax.set_title("IQR Anomaly Detection — Downtime", fontsize=13, fontweight="bold")
 ax.set_xlabel("Production Day")
 ax.set_ylabel("Downtime (minutes)")
@@ -253,11 +229,11 @@ plt.setp(ax.xaxis.get_majorticklabels(), rotation=30, ha="right")
 ax.legend(fontsize=9)
 ax.grid(axis="y", alpha=0.3)
 plt.tight_layout()
-plt.savefig("outputs_iqr_anomaly_detection/figures/iqr_downtime_anomalies.png", dpi=150, bbox_inches="tight")
+plt.savefig("outputs_iqr_anomaly_detection/figures/iqr_downtime_anomalies.png",
+            dpi=150, bbox_inches="tight")
 plt.show()
 print("  ✓ iqr_downtime_anomalies.png sauvegardé")
 
-# ── 2b. Bar chart par type ────────────────────────────────────────────────────
 type_counts = anomalies_dt["downtime_type"].value_counts()
 bar_colors  = [COLOR_CRITICAL, COLOR_WARNING][:len(type_counts)]
 
@@ -266,7 +242,6 @@ bars = ax.bar(type_counts.index, type_counts.values, color=bar_colors)
 for bar, val in zip(bars, type_counts.values):
     ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.3,
             str(val), ha="center", va="bottom", fontsize=11, fontweight="bold")
-
 ax.set_title("Downtime Anomalies by Type (IQR)", fontsize=13, fontweight="bold")
 ax.set_xlabel("Downtime Type")
 ax.set_ylabel("Count")
@@ -274,13 +249,14 @@ ax.set_xticks(range(len(type_counts.index)))
 ax.set_xticklabels(type_counts.index, rotation=20, ha="right", fontsize=10)
 ax.grid(axis="y", alpha=0.3)
 plt.tight_layout()
-plt.savefig("outputs_iqr_anomaly_detection/figures/iqr_downtime_type.png", dpi=150, bbox_inches="tight")
+plt.savefig("outputs_iqr_anomaly_detection/figures/iqr_downtime_type.png",
+            dpi=150, bbox_inches="tight")
 plt.show()
 print("  ✓ iqr_downtime_type.png sauvegardé")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 3.  DEFECT RATE — IQR par station (on cherche les HAUSSES → direction="high")
+# 3.  DEFECT RATE
 # ═════════════════════════════════════════════════════════════════════════════
 
 print("→ Génération Defect Rate (IQR)...")
@@ -290,39 +266,36 @@ df_def.columns = df_def.columns.str.strip()
 df_def["production_day"] = pd.to_datetime(df_def["production_day"])
 df_def = df_def.sort_values("production_day").reset_index(drop=True)
 
-# ── 3a. Vue agrégée journalière ───────────────────────────────────────────────
 df_daily = (
     df_def.groupby("production_day")["defect_rate_pct"]
     .mean().reset_index().sort_values("production_day")
 )
-
 df_daily, Q1_d, Q3_d, IQR_d, lower_d, upper_d = add_iqr_severity(
     df_daily, "defect_rate_pct", direction="high"
 )
 df_daily["ma7"] = df_daily["defect_rate_pct"].rolling(7, min_periods=1).mean()
-
 anom_daily = df_daily[df_daily["severity"] == "anomaly_high"]
 
 fig, ax = plt.subplots(figsize=(16, 6))
 ax.plot(df_daily["production_day"], df_daily["defect_rate_pct"],
-        color=COLOR_LINE, linewidth=1, alpha=0.6, label="Defect Rate (%) — moy. journalière")
+        color=COLOR_LINE, linewidth=1, alpha=0.6,
+        label="Defect Rate (%) — moy. journalière")
 ax.plot(df_daily["production_day"], df_daily["ma7"],
         color=COLOR_MA, linewidth=1.8, linestyle="--", label="Moy. mobile 7j")
-
 if not anom_daily.empty:
     ax.scatter(anom_daily["production_day"], anom_daily["defect_rate_pct"],
                color=COLOR_CRITICAL, s=90, marker="X", zorder=6,
                label=f"Anomalie IQR — n={len(anom_daily)}")
-
 ax.axhline(upper_d, color=COLOR_CRITICAL, linewidth=1.5, linestyle="--",
            label=f"Seuil IQR ({upper_d:.2f}%)")
 ax.fill_between(df_daily["production_day"], Q1_d, Q3_d,
-                alpha=0.10, color=COLOR_IQR, label=f"Zone IQR [Q1={Q1_d:.2f}, Q3={Q3_d:.2f}]")
+                alpha=0.10, color=COLOR_IQR,
+                label=f"Zone IQR [Q1={Q1_d:.2f}, Q3={Q3_d:.2f}]")
 ax.axhline(df_daily["defect_rate_pct"].mean(), color=COLOR_MA,
            linewidth=0.8, linestyle=":", alpha=0.6,
            label=f"Moyenne ({df_daily['defect_rate_pct'].mean():.2f}%)")
-
-ax.set_title("IQR Anomaly Detection — Defect Rate (agrégé par jour)", fontsize=13, fontweight="bold")
+ax.set_title("IQR Anomaly Detection — Defect Rate (agrégé par jour)",
+             fontsize=13, fontweight="bold")
 ax.set_xlabel("Production Day")
 ax.set_ylabel("Defect Rate (%)")
 ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
@@ -331,45 +304,238 @@ plt.setp(ax.xaxis.get_majorticklabels(), rotation=30, ha="right")
 ax.legend(fontsize=9, loc="upper right")
 ax.grid(axis="y", alpha=0.3)
 plt.tight_layout()
-plt.savefig("outputs_iqr_anomaly_detection/figures/iqr_defect_rate_daily.png", dpi=150, bbox_inches="tight")
+plt.savefig("outputs_iqr_anomaly_detection/figures/iqr_defect_rate_daily.png",
+            dpi=150, bbox_inches="tight")
 plt.show()
 print("  ✓ iqr_defect_rate_daily.png sauvegardé")
 
-# ── 3b. IQR par station + bar chart TOP 10 ───────────────────────────────────
-df_def = add_iqr_severity_group(df_def, "defect_rate_pct", "station_name", direction="high")
+df_def = add_iqr_severity_group(df_def, "defect_rate_pct", "station_name",
+                                 direction="high")
 anomalies_def  = df_def[df_def["severity"] == "anomaly_high"]
 station_counts = anomalies_def["station_name"].value_counts().head(10)
 
-# Couleur : rouge si la station a des valeurs très hautes (> Q3 + 3*IQR), orange sinon
 def is_extreme(station):
     grp = df_def[df_def["station_name"] == station]
     extreme_bound = grp["Q3"].iloc[0] + 3 * grp["IQR"].iloc[0]
     return grp["defect_rate_pct"].max() > extreme_bound
 
-colors_bar = [COLOR_CRITICAL if is_extreme(s) else COLOR_WARNING for s in station_counts.index]
+colors_bar = [COLOR_CRITICAL if is_extreme(s) else COLOR_WARNING
+              for s in station_counts.index]
 
 fig, ax = plt.subplots(figsize=(12, 5))
 bars = ax.bar(station_counts.index, station_counts.values, color=colors_bar)
 for bar, val in zip(bars, station_counts.values):
     ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.1,
             str(val), ha="center", va="bottom", fontsize=10, fontweight="bold")
-
 legend_patches = [
     mpatches.Patch(color=COLOR_CRITICAL, label="Extrême (> Q3 + 3×IQR)"),
     mpatches.Patch(color=COLOR_WARNING,  label="Anomalie IQR standard (> Q3 + 1.5×IQR)"),
 ]
 ax.legend(handles=legend_patches, fontsize=9)
-ax.set_title("Top Stations — Anomalies Defect Rate (IQR)", fontsize=13, fontweight="bold")
+ax.set_title("Top Stations — Anomalies Defect Rate (IQR)",
+             fontsize=13, fontweight="bold")
 ax.set_xlabel("Station")
 ax.set_ylabel("Nombre d'anomalies")
 ax.set_xticks(range(len(station_counts.index)))
 ax.set_xticklabels(station_counts.index, rotation=25, ha="right", fontsize=9)
 ax.grid(axis="y", alpha=0.3)
 plt.tight_layout()
-plt.savefig("outputs_iqr_anomaly_detection/figures/iqr_defect_station.png", dpi=150, bbox_inches="tight")
+plt.savefig("outputs_iqr_anomaly_detection/figures/iqr_defect_station.png",
+            dpi=150, bbox_inches="tight")
 plt.show()
 print("  ✓ iqr_defect_station.png sauvegardé")
 
-# ─────────────────────────────────────────────────────────────────────────────
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 4.  EXPORT CSV
+# ═════════════════════════════════════════════════════════════════════════════
+
+print("\n→ Export CSV...")
+
+# ── OEE ──────────────────────────────────────────────────────────────────────
+oee_cols_csv = [
+    "production_day", "station_id", "station_name",
+    "oee_pct", "Q1", "Q3", "IQR", "lower_bound", "upper_bound", "severity"
+]
+oee_cols_csv = [c for c in oee_cols_csv if c in df_oee.columns]
+
+df_oee[oee_cols_csv].to_csv(
+    "outputs_iqr_anomaly_detection/csv/iqr_oee_all.csv", index=False
+)
+df_oee[df_oee["severity"] != "normal"][oee_cols_csv].to_csv(
+    "outputs_iqr_anomaly_detection/csv/iqr_oee_anomalies.csv", index=False
+)
+print("  ✓ iqr_oee_all.csv + iqr_oee_anomalies.csv")
+
+# ── Downtime ─────────────────────────────────────────────────────────────────
+dt_cols_csv = [
+    "production_day", "station_id", "station_name",
+    "downtime_minutes", "downtime_type",
+    "Q1", "Q3", "IQR", "lower_bound", "upper_bound", "severity"
+]
+dt_cols_csv = [c for c in dt_cols_csv if c in df_dt.columns]
+
+df_dt[dt_cols_csv].to_csv(
+    "outputs_iqr_anomaly_detection/csv/iqr_downtime_all.csv", index=False
+)
+df_dt[df_dt["severity"] != "normal"][dt_cols_csv].to_csv(
+    "outputs_iqr_anomaly_detection/csv/iqr_downtime_anomalies.csv", index=False
+)
+print("  ✓ iqr_downtime_all.csv + iqr_downtime_anomalies.csv")
+
+# ── Defect Rate ───────────────────────────────────────────────────────────────
+def_cols_csv = [
+    "production_day", "station_id", "station_name",
+    "defect_rate_pct", "Q1", "Q3", "IQR", "lower_bound", "upper_bound", "severity"
+]
+def_cols_csv = [c for c in def_cols_csv if c in df_def.columns]
+
+df_def[def_cols_csv].to_csv(
+    "outputs_iqr_anomaly_detection/csv/iqr_defect_all.csv", index=False
+)
+df_def[df_def["severity"] != "normal"][def_cols_csv].to_csv(
+    "outputs_iqr_anomaly_detection/csv/iqr_defect_anomalies.csv", index=False
+)
+print("  ✓ iqr_defect_all.csv + iqr_defect_anomalies.csv")
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 5.  EXPORT POSTGRESQL
+# ═════════════════════════════════════════════════════════════════════════════
+
+print("\n→ Export PostgreSQL...")
+
+engine2 = create_engine(
+    "postgresql+psycopg2://postgres:admin123@localhost:5435/postgres"
+)
+
+# Colonnes communes pour la table unifiée iqr_results
+# (sans downtime_type qui est spécifique à downtime)
+sql_base_cols = [
+    "production_day", "station_id", "station_name",
+    "Q1", "Q3", "IQR", "lower_bound", "upper_bound", "severity"
+]
+
+# OEE → iqr_results (replace)
+df_oee_sql = df_oee[[c for c in sql_base_cols if c in df_oee.columns]].copy()
+df_oee_sql["kpi_name"]  = "oee_pct"
+df_oee_sql["kpi_value"] = df_oee["oee_pct"].values
+df_oee_sql.to_sql("iqr_results", engine2, if_exists="replace", index=False)
+print("  ✓ iqr_results (OEE) chargée")
+
+# Downtime → iqr_results (append) — sans downtime_type
+df_dt_sql = df_dt[[c for c in sql_base_cols if c in df_dt.columns]].copy()
+df_dt_sql["kpi_name"]  = "downtime_minutes"
+df_dt_sql["kpi_value"] = df_dt["downtime_minutes"].values
+df_dt_sql.to_sql("iqr_results", engine2, if_exists="append", index=False)
+print("  ✓ iqr_results (Downtime) appendée")
+
+# Defect Rate → iqr_results (append)
+df_def_sql = df_def[[c for c in sql_base_cols if c in df_def.columns]].copy()
+df_def_sql["kpi_name"]  = "defect_rate_pct"
+df_def_sql["kpi_value"] = df_def["defect_rate_pct"].values
+df_def_sql.to_sql("iqr_results", engine2, if_exists="append", index=False)
+print("  ✓ iqr_results (Defect Rate) appendée")
+
+engine2.dispose()
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 6.  RAPPORT TEXTE
+# ═════════════════════════════════════════════════════════════════════════════
+
+print("\n→ Génération rapport texte...")
+
+report_path = "outputs_iqr_anomaly_detection/reports/iqr_report.txt"
+with open(report_path, "w", encoding="utf-8") as f:
+
+    f.write("=" * 65 + "\n")
+    f.write("   RAPPORT IQR ANOMALY DETECTION\n")
+    f.write("=" * 65 + "\n\n")
+
+    f.write(f"  Période OEE      : "
+            f"{df_oee['production_day'].min().date()} → "
+            f"{df_oee['production_day'].max().date()}\n")
+    f.write(f"  Période Downtime : "
+            f"{df_dt['production_day'].min().date()} → "
+            f"{df_dt['production_day'].max().date()}\n")
+    f.write(f"  Période Defect   : "
+            f"{df_def['production_day'].min().date()} → "
+            f"{df_def['production_day'].max().date()}\n\n")
+
+    # ── OEE ──────────────────────────────────────────────────────────────────
+    f.write("── OEE (IQR 1.0× + plancher 50%) ──\n\n")
+    for station in sorted(df_oee["station_name"].unique()):
+        grp     = df_oee[df_oee["station_name"] == station]
+        n_anom  = (grp["severity"] == "anomaly_low").sum()
+        q1      = grp["Q1"].iloc[0]
+        q3      = grp["Q3"].iloc[0]
+        iqr_v   = grp["IQR"].iloc[0]
+        lb      = grp["lower_bound"].iloc[0]
+        mean_v  = grp["oee_pct"].mean()
+        f.write(
+            f"  {station:<22}  moy={mean_v:.1f}%  "
+            f"Q1={q1:.1f}  Q3={q3:.1f}  IQR={iqr_v:.1f}  "
+            f"seuil={lb:.1f}%  anomalies={n_anom}\n"
+        )
+
+    # Détail anomalies OEE critiques
+    anom_oee = df_oee[df_oee["severity"] == "anomaly_low"].sort_values(
+        ["station_name", "production_day"]
+    )
+    if not anom_oee.empty:
+        f.write("\n  Détail anomalies OEE :\n")
+        for _, row in anom_oee.iterrows():
+            f.write(
+                f"    {str(row['production_day'].date()):<12}  "
+                f"{str(row.get('station_name','')):<22}  "
+                f"OEE={row['oee_pct']:.1f}%  "
+                f"seuil={row['lower_bound']:.1f}%\n"
+            )
+
+    # ── Downtime ─────────────────────────────────────────────────────────────
+    f.write(f"\n── Downtime (IQR 3×) ──\n\n")
+    f.write(
+        f"  Q1={Q1_dt:.1f} min  Q3={Q3_dt:.1f} min  "
+        f"IQR={IQR_dt:.1f}  Seuil={upper_dt:.1f} min  "
+        f"Anomalies={len(anomalies_dt)}\n\n"
+    )
+    if not anomalies_dt.empty:
+        f.write("  Par type de downtime :\n")
+        for dtype, count in anomalies_dt["downtime_type"].value_counts().items():
+            f.write(f"    {dtype:<30}  {count}\n")
+        f.write("\n  Détail anomalies Downtime :\n")
+        for _, row in anomalies_dt.sort_values("downtime_minutes", ascending=False).iterrows():
+            f.write(
+                f"    {str(row['production_day'].date()):<12}  "
+                f"{str(row.get('station_name','')):<22}  "
+                f"{row['downtime_minutes']:.0f} min  "
+                f"type={row.get('downtime_type','')}\n"
+            )
+
+    # ── Defect Rate ───────────────────────────────────────────────────────────
+    f.write(f"\n── Defect Rate (IQR 1.5×) ──\n\n")
+    f.write(
+        f"  Vue agrégée — Q1={Q1_d:.2f}%  Q3={Q3_d:.2f}%  "
+        f"IQR={IQR_d:.2f}  Seuil={upper_d:.2f}%  "
+        f"Anomalies agrégées={len(anom_daily)}\n\n"
+    )
+    f.write("  Anomalies par station :\n")
+    for station in sorted(df_def["station_name"].unique()):
+        grp    = df_def[df_def["station_name"] == station]
+        n_anom = (grp["severity"] == "anomaly_high").sum()
+        q1     = grp["Q1"].iloc[0]
+        q3     = grp["Q3"].iloc[0]
+        iqr_v  = grp["IQR"].iloc[0]
+        ub     = grp["upper_bound"].iloc[0]
+        f.write(
+            f"    {station:<22}  Q1={q1:.2f}  Q3={q3:.2f}  "
+            f"IQR={iqr_v:.3f}  seuil={ub:.2f}%  anomalies={n_anom}\n"
+        )
+
+    f.write("\n" + "=" * 65 + "\n")
+
+print(f"  ✓ {report_path}")
+
 engine.dispose()
 print("\n✅ Tous les graphiques IQR générés et sauvegardés.")

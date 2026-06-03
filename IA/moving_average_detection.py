@@ -132,18 +132,10 @@ def add_moving_average(
 
     return g
 
-
 def plot_moving_average(df: pd.DataFrame, col: str = "oee_pct",
                         window: int = 7, threshold_pct: float = 0.5,
                         direction: str = "low") -> None:
-    """
-    Génère les graphiques Moving Average Deviation pour un KPI.
 
-    Graphiques produits :
-        A. Time-series par station : courbe KPI + MA7 + anomalies colorées
-        B. Histogramme : nombre d'anomalies MA par station
-        C. Tableau console des anomalies détectées
-    """
     kpi_label = col.replace("_pct", " (%)").replace("_", " ").upper()
     print(f"\n→ Moving Average Deviation — {kpi_label}  (fenêtre={window}j, seuil={threshold_pct*100:.0f}%)")
 
@@ -157,10 +149,9 @@ def plot_moving_average(df: pd.DataFrame, col: str = "oee_pct",
     df_ma = pd.concat(parts).reset_index(drop=True)
 
     stations = sorted(df_ma["station_name"].dropna().unique())
-    n           = len(stations)
-    ma_col      = f"ma_{col}"
+    n        = len(stations)
+    ma_col   = f"ma_{col}"
 
-    # ── A. Time-series par station ────────────────────────────────────────────
     fig, axes = plt.subplots(nrows=n, ncols=1, figsize=(16, 4 * n), sharex=False)
     if n == 1:
         axes = [axes]
@@ -172,10 +163,11 @@ def plot_moving_average(df: pd.DataFrame, col: str = "oee_pct",
 
     all_anom = []
     for ax, station in zip(axes, stations):
+        # ↓ CORRECTION : utiliser df_ma au lieu de df
         grp = (
-        df[df["station_name"] == station]
-        .copy()
-        .sort_values("production_day")
+            df_ma[df_ma["station_name"] == station]
+            .copy()
+            .sort_values("production_day")
         )
         warn = grp[grp["ma_severity"] == "warning"]
         crit = grp[grp["ma_severity"] == "critical"]
@@ -190,7 +182,7 @@ def plot_moving_average(df: pd.DataFrame, col: str = "oee_pct",
                 color=C_MA, linewidth=2, linestyle="--",
                 label=f"Moyenne mobile {window}j")
 
-        # Remplissage entre KPI et MA (zone d'écart)
+        # Remplissage entre KPI et MA
         ax.fill_between(
             grp["production_day"],
             grp[col], grp[ma_col],
@@ -233,16 +225,16 @@ def plot_moving_average(df: pd.DataFrame, col: str = "oee_pct",
         ax.grid(axis="y", alpha=0.3)
 
     plt.tight_layout()
-    fname = f"ma_deviation_{col}.png"
+    fname = f"outputs_moving_anomaly/figures/ma_deviation_{col}.png"
     plt.savefig(fname, dpi=150, bbox_inches="tight")
     plt.show()
     print(f"  ✓ {fname}")
 
-    # ── B. Histogramme par station ────────────────────────────────────────────
+    # ── Histogramme par station ───────────────────────────────────────────────
     anom_all = pd.concat(all_anom) if all_anom else pd.DataFrame()
     if anom_all.empty:
         print("  ℹ Aucune anomalie MA détectée.")
-        return
+        return anom_all   # retourne df vide pour l'export
 
     counts = (
         anom_all.groupby(["station_name", "ma_severity"])
@@ -254,8 +246,8 @@ def plot_moving_average(df: pd.DataFrame, col: str = "oee_pct",
     counts = counts.sort_values("total", ascending=False)
 
     fig2, ax2 = plt.subplots(figsize=(max(8, len(counts) * 1.4), 5))
-    x      = range(len(counts))
-    width  = 0.4
+    x     = range(len(counts))
+    width = 0.4
     b_warn = ax2.bar([i - width/2 for i in x], counts["warning"],
                      width=width, color=C_WARNING, label="Warning")
     b_crit = ax2.bar([i + width/2 for i in x], counts["critical"],
@@ -275,16 +267,18 @@ def plot_moving_average(df: pd.DataFrame, col: str = "oee_pct",
     ax2.legend(fontsize=9)
     ax2.grid(axis="y", alpha=0.3)
     plt.tight_layout()
-    fname2 = f"ma_anomalies_par_station_{col}.png"
+    fname2 = f"outputs_moving_anomaly/figures/ma_anomalies_par_station_{col}.png"
     plt.savefig(fname2, dpi=150, bbox_inches="tight")
     plt.show()
     print(f"  ✓ {fname2}")
 
-    # ── C. Export CSV + rapport console ──────────────────────────────────────
-    out_cols = ["production_day", "station_id", col, ma_col,
+    # ── Export CSV anomalies ──────────────────────────────────────────────────
+    out_cols = ["production_day", "station_id", "station_name", col, ma_col,
                 "ma_raw_deviation", "ma_deviation_pct", "ma_severity"]
     out_cols = [c for c in out_cols if c in anom_all.columns]
-    anom_all[out_cols].to_csv(f"ma_anomalies_{col}.csv", index=False)
+    anom_all[out_cols].to_csv(
+        f"outputs_moving_anomaly/csv/ma_anomalies_{col}.csv", index=False
+    )
     print(f"  ✓ ma_anomalies_{col}.csv")
 
     print(f"\n  ===== ANOMALIES MOVING AVERAGE — {kpi_label} =====")
@@ -293,6 +287,7 @@ def plot_moving_average(df: pd.DataFrame, col: str = "oee_pct",
         display["ma_deviation_pct"] = (display["ma_deviation_pct"] * 100).round(1).astype(str) + "%"
     print(display.to_string(index=False))
 
+    return df_ma   # ← retourne df_ma enrichi pour réutilisation dans __main__
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 4. Graphiques OEE (Z-Score)
@@ -481,30 +476,190 @@ def demo_data(n: int = 60) -> pd.DataFrame:
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. Main
 # ─────────────────────────────────────────────────────────────────────────────
-
 if __name__ == "__main__":
     import urllib3
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    import os
+    os.makedirs("outputs_moving_anomaly/figures", exist_ok=True)
+    os.makedirs("outputs_moving_anomaly/csv",     exist_ok=True)
+    os.makedirs("outputs_moving_anomaly/reports", exist_ok=True)
 
     engine = create_engine(
         "postgresql+psycopg2://postgres:admin123@localhost:5435/postgres"
     )
 
-    df = pd.read_sql(
-        "SELECT * FROM oee_kpi",
-        engine
-    )
-
+    df = pd.read_sql("SELECT * FROM oee_kpi", engine)
     df["production_day"] = pd.to_datetime(df["production_day"])
     df.columns = df.columns.str.strip()
 
     engine.dispose()
 
-
-    # ── Génération des graphiques ─────────────────────────────────────────────
-    print("\n→ Génération des graphiques OEE...")
-    df["production_day"] = pd.to_datetime(
-    df["production_day"]
-    )
+    # ── Génération des graphiques OEE (Z-Score) ───────────────────────────────
+    print("\n→ Génération des graphiques OEE (Z-Score)...")
     plot_oee(df)
+
+    # ── Moving Average sur OEE ────────────────────────────────────────────────
+    print("\n→ Moving Average Deviation — OEE...")
+    plot_moving_average(df, col="oee_pct", window=7,
+                        threshold_pct=0.5, direction="low")
+
+    # ── Export CSV complet (toutes stations, toutes colonnes MA) ──────────────
+    print("\n→ Export CSV complet (Moving Average)...")
+
+    parts_ma = []
+    for station in df["station_name"].dropna().unique():
+        g = df[df["station_name"] == station].copy()
+        g = add_moving_average(g, "oee_pct", window=7,
+                               threshold_pct=0.5, direction="low")
+        parts_ma.append(g)
+
+    df_ma_full = pd.concat(parts_ma, ignore_index=True)
+
+    ma_all_cols = [
+        "production_day", "station_id", "station_name",
+        "oee_pct", "ma_oee_pct",
+        "ma_raw_deviation", "ma_deviation_pct", "ma_severity"
+    ]
+    ma_all_cols = [c for c in ma_all_cols if c in df_ma_full.columns]
+
+    df_ma_full[ma_all_cols].to_csv(
+        "outputs_moving_anomaly/csv/ma_oee_all.csv", index=False
+    )
+    print("  ✓ ma_oee_all.csv")
+
+    df_ma_full[df_ma_full["ma_severity"] != "normal"][ma_all_cols].to_csv(
+        "outputs_moving_anomaly/csv/ma_oee_anomalies.csv", index=False
+    )
+    print("  ✓ ma_oee_anomalies.csv")
+
+    # ── Export Z-Score CSV ────────────────────────────────────────────────────
+    parts_zs = []
+    for station in df["station_name"].dropna().unique():
+        g = df[df["station_name"] == station].copy()
+        g = add_zscore(g, "oee_pct", direction="low")
+        parts_zs.append(g)
+
+    df_zs_full = pd.concat(parts_zs, ignore_index=True)
+
+    zs_cols = [
+        "production_day", "station_id", "station_name",
+        "oee_pct", "z_score", "severity"
+    ]
+    zs_cols = [c for c in zs_cols if c in df_zs_full.columns]
+
+    df_zs_full[zs_cols].to_csv(
+        "outputs_moving_anomaly/csv/zscore_oee_all.csv", index=False
+    )
+    print("  ✓ zscore_oee_all.csv")
+
+    df_zs_full[df_zs_full["severity"] != "normal"][zs_cols].to_csv(
+        "outputs_moving_anomaly/csv/zscore_oee_anomalies.csv", index=False
+    )
+    print("  ✓ zscore_oee_anomalies.csv")
+
+    # ── Export PostgreSQL ─────────────────────────────────────────────────────
+    print("\n→ Export PostgreSQL...")
+
+    engine2 = create_engine(
+        "postgresql+psycopg2://postgres:admin123@localhost:5435/postgres"
+    )
+
+    # Table ma_results
+    df_ma_sql = df_ma_full[ma_all_cols].copy()
+    df_ma_sql["kpi_name"] = "oee_pct"
+    df_ma_sql = df_ma_sql.rename(columns={
+        "oee_pct":        "kpi_value",
+        "ma_oee_pct":     "ma_value",
+        "ma_severity":    "severity"
+    })
+    df_ma_sql.to_sql("ma_results", engine2, if_exists="replace", index=False)
+    print("  ✓ table ma_results chargée en base")
+
+    # Table zscore_results
+    df_zs_sql = df_zs_full[zs_cols].copy()
+    df_zs_sql["kpi_name"] = "oee_pct"
+    df_zs_sql = df_zs_sql.rename(columns={"oee_pct": "kpi_value"})
+    df_zs_sql.to_sql("zscore_results", engine2, if_exists="replace", index=False)
+    print("  ✓ table zscore_results chargée en base")
+
+    engine2.dispose()
+
+    # ── Rapport texte ─────────────────────────────────────────────────────────
+    print("\n→ Génération rapport texte...")
+
+    report_path = "outputs_moving_anomaly/reports/ma_report.txt"
+    with open(report_path, "w", encoding="utf-8") as f:
+
+        f.write("=" * 65 + "\n")
+        f.write("   RAPPORT MOVING AVERAGE DEVIATION — OEE\n")
+        f.write("=" * 65 + "\n\n")
+
+        f.write(f"  Fenêtre MA    : 7 jours\n")
+        f.write(f"  Seuil warning : 50%  d'écart vs MA\n")
+        f.write(f"  Seuil critical: 100% d'écart vs MA\n")
+        f.write(f"  Direction     : low (chutes uniquement)\n")
+        f.write(f"  Stations      : {df['station_name'].nunique()}\n")
+        f.write(f"  Période       : "
+                f"{df['production_day'].min().date()} → "
+                f"{df['production_day'].max().date()}\n\n")
+
+        # Résumé MA par station
+        f.write("── Résumé Moving Average par station ──\n\n")
+        for station in sorted(df_ma_full["station_name"].dropna().unique()):
+            grp = df_ma_full[df_ma_full["station_name"] == station]
+            n_warn = (grp["ma_severity"] == "warning").sum()
+            n_crit = (grp["ma_severity"] == "critical").sum()
+            n_total = n_warn + n_crit
+            max_dev = grp["ma_deviation_pct"].max()
+            f.write(
+                f"  {station:<22}  total={n_total:>3}  "
+                f"warning={n_warn:>3}  critical={n_crit:>3}  "
+                f"max_écart={max_dev*100:.1f}%\n"
+            )
+
+        # Résumé Z-Score par station
+        f.write("\n── Résumé Z-Score par station ──\n\n")
+        for station in sorted(df_zs_full["station_name"].dropna().unique()):
+            grp = df_zs_full[df_zs_full["station_name"] == station]
+            n_warn = (grp["severity"] == "warning").sum()
+            n_crit = (grp["severity"] == "critical").sum()
+            min_z  = grp["z_score"].min()
+            f.write(
+                f"  {station:<22}  warning={n_warn:>3}  "
+                f"critical={n_crit:>3}  z_min={min_z:.2f}\n"
+            )
+
+        # Détail des anomalies critiques MA
+        crit_ma = df_ma_full[df_ma_full["ma_severity"] == "critical"].sort_values(
+            "ma_deviation_pct", ascending=False
+        )
+        if not crit_ma.empty:
+            f.write("\n── Anomalies critiques MA (écart ≥ 100%) ──\n\n")
+            for _, row in crit_ma.iterrows():
+                f.write(
+                    f"  {str(row['production_day'].date()):<12}  "
+                    f"{str(row.get('station_name','')):<22}  "
+                    f"OEE={row['oee_pct']:.1f}%  "
+                    f"MA={row.get('ma_oee_pct', float('nan')):.1f}%  "
+                    f"écart={row['ma_deviation_pct']*100:.1f}%\n"
+                )
+
+        # Détail des anomalies critiques Z-Score
+        crit_zs = df_zs_full[df_zs_full["severity"] == "critical"].sort_values(
+            "z_score"
+        )
+        if not crit_zs.empty:
+            f.write("\n── Anomalies critiques Z-Score (z < -3) ──\n\n")
+            for _, row in crit_zs.iterrows():
+                f.write(
+                    f"  {str(row['production_day'].date()):<12}  "
+                    f"{str(row.get('station_name','')):<22}  "
+                    f"OEE={row['oee_pct']:.1f}%  "
+                    f"z={row['z_score']:.2f}\n"
+                )
+
+        f.write("\n" + "=" * 65 + "\n")
+
+    print(f"  ✓ {report_path}")
     print("\n✅ Terminé.\n")
