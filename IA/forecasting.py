@@ -441,7 +441,7 @@ def plot_metrics_comparison(metrics: list) -> None:
 
 def plot_next_day_summary(next_day_preds: list) -> None:
     df_n = pd.DataFrame(next_day_preds)
-    fig, ax = plt.subplots(figsize=(12, max(4, len(df_n) * 1.2 + 2)))
+    fig, ax = plt.subplots(figsize=(13, 5))  # au lieu de (12, n*1.2+2)
     ax.axis("off")
 
     col_labels  = ["Station", "Date J+1", "Réel J (%)", "Prévision MA7 (%)", "Prévision ES (%)", "Écart MA vs Réel"]
