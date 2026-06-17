@@ -1,4 +1,21 @@
+"""
+Détection d'anomalies KPI — Z-Score & Moving Average Deviation
+==================================================================
+Objectif : Compléter l'approche IQR / Isolation Forest avec deux
+           méthodes statistiques complémentaires, plus simples à
+           expliquer à l'oral :
+
+  1. Z-Score          → écart à la moyenne en nombre d'écarts-types
+                         (warning si |z| > 2, critical si |z| > 3)
+  2. Moving Average    → écart relatif à la moyenne mobile des 7
+     Deviation            derniers jours (warning ≥ 50%, critical ≥ 100%)
+
+Source : PostgreSQL (table oee_kpi)
+"""
+
+import os
 import sys
+import urllib3
 import requests
 import numpy as np
 import pandas as pd
@@ -6,6 +23,8 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib.patches as mpatches
 from sqlalchemy import create_engine
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -24,9 +43,11 @@ C_WARNING  = "#F5A623"
 C_CRITICAL = "#D0021B"
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 2. Z-Score par groupe
-# ─────────────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 1 — Z-SCORE PAR GROUPE (FONCTION)
+# Calcul du z-score (écart à la moyenne / écart-type) par station, et
+# classification en normal / warning (|z|>2) / critical (|z|>3).
+# ══════════════════════════════════════════════════════════════════════════════
 
 def add_zscore(group: pd.DataFrame, col: str, direction: str = "low") -> pd.DataFrame:
     """
@@ -47,9 +68,12 @@ def add_zscore(group: pd.DataFrame, col: str, direction: str = "low") -> pd.Data
     return g
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 3. Moving Average Deviation
-# ─────────────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 2 — MOVING AVERAGE DEVIATION (FONCTION)
+# Calcul de l'écart relatif entre la valeur du jour et la moyenne
+# mobile des `window` jours précédents (sans le jour J), avec
+# classification normal / warning / critical selon `threshold_pct`.
+# ══════════════════════════════════════════════════════════════════════════════
 
 def add_moving_average(
     group: pd.DataFrame,
@@ -131,6 +155,14 @@ def add_moving_average(
     g.loc[crit_mask, "ma_severity"] = "critical"
 
     return g
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 3 — GRAPHIQUES MOVING AVERAGE
+# Génère, pour un KPI donné : le graphique temporel par station
+# (courbe réelle + MA + anomalies), l'histogramme warning/critical par
+# station, et l'export CSV des anomalies détectées.
+# ══════════════════════════════════════════════════════════════════════════════
 
 def plot_moving_average(df: pd.DataFrame, col: str = "oee_pct",
                         window: int = 7, threshold_pct: float = 0.5,
@@ -289,9 +321,13 @@ def plot_moving_average(df: pd.DataFrame, col: str = "oee_pct",
 
     return df_ma   # ← retourne df_ma enrichi pour réutilisation dans __main__
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 4. Graphiques OEE (Z-Score)
-# ─────────────────────────────────────────────────────────────────────────────
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 4 — GRAPHIQUES OEE (Z-SCORE)
+# Génère, pour l'OEE : le graphique temporel par station (bande ±2σ +
+# anomalies), la heatmap station × semaine, l'histogramme par station,
+# et l'export CSV des anomalies Z-Score.
+# ══════════════════════════════════════════════════════════════════════════════
 
 def plot_oee(df: pd.DataFrame) -> None:
     """Un sous-graphe par station — lisible même avec 10+ stations."""
@@ -449,9 +485,12 @@ def plot_oee(df: pd.DataFrame) -> None:
     ]].to_string(index=False))
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 4. Mode démo (sans API)
-# ─────────────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 5 — MODE DÉMO (SANS API)
+# Génère un jeu de données synthétique (3 stations, n jours) avec
+# anomalies injectées volontairement — utile pour tester les fonctions
+# de détection sans dépendre de la base PostgreSQL.
+# ══════════════════════════════════════════════════════════════════════════════
 
 def demo_data(n: int = 60) -> pd.DataFrame:
     rng   = np.random.default_rng(42)
@@ -473,14 +512,15 @@ def demo_data(n: int = 60) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 5. Main
-# ─────────────────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    import urllib3
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 6 — POINT D'ENTRÉE PRINCIPAL
+# Orchestration complète : chargement OEE depuis PostgreSQL →
+# Z-Score → Moving Average → exports CSV (4 fichiers) → exports
+# PostgreSQL (2 tables) → rapport texte consolidé.
+# ══════════════════════════════════════════════════════════════════════════════
 
-    import os
+if __name__ == "__main__":
+
     os.makedirs("outputs_moving_anomaly/figures", exist_ok=True)
     os.makedirs("outputs_moving_anomaly/csv",     exist_ok=True)
     os.makedirs("outputs_moving_anomaly/reports", exist_ok=True)

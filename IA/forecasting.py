@@ -48,6 +48,8 @@ C_GRID    = "#E8E8E8"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 1. CHARGEMENT DEPUIS POSTGRESQL
+# Connexion via SQLAlchemy, lecture de la table defect_rate_kpi,
+# nettoyage et typage des colonnes.
 # ══════════════════════════════════════════════════════════════════════════════
 
 def load_from_postgres(station_id: int = None) -> pd.DataFrame:
@@ -91,6 +93,8 @@ def load_from_postgres(station_id: int = None) -> pd.DataFrame:
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 2. FEATURE ENGINEERING
+# Construction des variables explicatives par station :
+# moyennes mobiles, volatilité, tendance linéaire, ratios opérationnels.
 # ══════════════════════════════════════════════════════════════════════════════
 
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -154,6 +158,10 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 3. MODÈLES DE PRÉVISION
+# Implémentation de deux approches de forecasting :
+#   · Moving Average (MA)  : moyenne glissante sur fenêtre configurable
+#   · Exponential Smoothing (Holt) : lissage avec composante tendance
+# Inclut évaluation (MAE, RMSE, MAPE) et prédiction J+1.
 # ══════════════════════════════════════════════════════════════════════════════
 
 def forecast_moving_average(series: pd.Series, window: int = 7) -> pd.Series:
@@ -253,7 +261,12 @@ def predict_next_day(series: pd.Series, window: int = 7) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 4. GRAPHIQUES
+# 4. VISUALISATION
+# Génération de 4 graphiques :
+#   [1] Features engineered (station de référence)
+#   [2] Prévisions MA vs ES par station + intervalles de confiance + résidus
+#   [3] Comparaison des métriques MAE / MAPE par station
+#   [4] Tableau récapitulatif des prévisions J+1
 # ══════════════════════════════════════════════════════════════════════════════
 
 def plot_forecast_per_station(df_feat: pd.DataFrame, window: int = 7):
@@ -482,6 +495,8 @@ def plot_next_day_summary(next_day_preds: list) -> None:
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 5. RAPPORT + EXPORT CSV
+# Affichage formaté des métriques et prévisions J+1 dans le terminal.
+# Export des résultats complets en trois fichiers CSV.
 # ══════════════════════════════════════════════════════════════════════════════
 
 def print_forecast_report(metrics: list, next_day_preds: list) -> None:
@@ -524,6 +539,8 @@ def export_results(df_feat: pd.DataFrame, next_day_preds: list, metrics: list) -
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 6. MAIN
+# Parsing des arguments CLI, orchestration du pipeline complet :
+# chargement → features → visualisation → rapport → export.
 # ══════════════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":

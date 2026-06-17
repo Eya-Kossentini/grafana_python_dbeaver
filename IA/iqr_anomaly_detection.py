@@ -31,9 +31,13 @@ COLOR_CRITICAL= "#D0021B"
 COLOR_MA      = "#7ED321"
 COLOR_IQR     = "#9B59B6"
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Fonctions IQR
-# ─────────────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 0 — FONCTIONS IQR (DÉTECTION D'ANOMALIES)
+# Calcul des bornes IQR (Q1, Q3, IQR) et classification de chaque
+# observation en "normal" / "anomaly_low" / "anomaly_high".
+#   add_iqr_severity        → calcul global (toutes stations confondues)
+#   add_iqr_severity_group  → calcul par groupe (ex : par station)
+# ══════════════════════════════════════════════════════════════════════════════
 
 def add_iqr_severity(df, col, direction="both", multiplier=1.5):
     df = df.copy()
@@ -79,7 +83,10 @@ def add_iqr_severity_group(df, col, group_col, direction="both", multiplier=1.5)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 1.  OEE
+# SECTION 1 — KPI OEE (TAUX DE RENDEMENT GLOBAL)
+# Détection des anomalies basses d'OEE par station (seuil IQR 1.0× avec
+# plancher absolu de 50%). Génère le graphique multi-stations et la
+# heatmap hebdomadaire des anomalies.
 # ═════════════════════════════════════════════════════════════════════════════
 
 print("→ Génération OEE (IQR)...")
@@ -186,9 +193,11 @@ plt.savefig("outputs_iqr_anomaly_detection/figures/iqr_oee_heatmap.png",
 plt.show()
 print("  ✓ iqr_oee_heatmap.png sauvegardé")
 
-
 # ═════════════════════════════════════════════════════════════════════════════
-# 2.  DOWNTIME
+# SECTION 2 — KPI DOWNTIME (TEMPS D'ARRÊT)
+# Détection des anomalies hautes de durée d'arrêt (seuil IQR 3× — plus
+# tolérant car les arrêts longs mais légitimes existent). Génère le
+# graphique temporel et la répartition par type de panne.
 # ═════════════════════════════════════════════════════════════════════════════
 
 print("→ Génération Downtime (IQR)...")
@@ -255,8 +264,12 @@ plt.show()
 print("  ✓ iqr_downtime_type.png sauvegardé")
 
 
+
 # ═════════════════════════════════════════════════════════════════════════════
-# 3.  DEFECT RATE
+# SECTION 3 — KPI DEFECT RATE (TAUX DE REBUTS)
+# Détection des anomalies hautes de taux de rebuts, à deux niveaux :
+# vue agrégée journalière (toutes stations) et vue détaillée par
+# station avec distinction anomalie standard / extrême.
 # ═════════════════════════════════════════════════════════════════════════════
 
 print("→ Génération Defect Rate (IQR)...")
@@ -347,7 +360,9 @@ print("  ✓ iqr_defect_station.png sauvegardé")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 4.  EXPORT CSV
+# SECTION 4 — EXPORT CSV
+# Export de chaque KPI (OEE, Downtime, Defect Rate) en deux fichiers :
+# le jeu de données complet et le sous-ensemble des anomalies détectées.
 # ═════════════════════════════════════════════════════════════════════════════
 
 print("\n→ Export CSV...")
@@ -400,7 +415,10 @@ print("  ✓ iqr_defect_all.csv + iqr_defect_anomalies.csv")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 5.  EXPORT POSTGRESQL
+# SECTION 5 — EXPORT POSTGRESQL
+# Consolidation des trois KPI dans une table unique "iqr_results"
+# (format long : une ligne par observation/KPI) pour exploitation
+# directe dans Grafana.
 # ═════════════════════════════════════════════════════════════════════════════
 
 print("\n→ Export PostgreSQL...")

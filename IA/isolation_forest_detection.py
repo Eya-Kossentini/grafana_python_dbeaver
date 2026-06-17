@@ -1,10 +1,23 @@
+"""
+Détection d'anomalies multivariées KPI industriels — Isolation Forest
+========================================================================
+Objectif : Détecter les observations anormales en croisant simultanément
+           tous les KPI (OEE, défauts, downtime, MTBF, MTTR) — contrairement
+           à l'approche IQR qui traite chaque KPI indépendamment.
+ 
+Méthode : Isolation Forest (scikit-learn)
+          + Visualisation PCA 2D pour interpréter les anomalies multivariées
+ 
+Source : PostgreSQL (jointure de 5 tables KPI sur production_day × station_id)
+"""
+ 
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib.patches as mpatches
 
-from sqlalchemy import create_engine
+from sqlalchemy import text, create_engine
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
@@ -16,6 +29,7 @@ from sklearn.decomposition import PCA
 
 os.makedirs("outputs_isolation_forest/figures", exist_ok=True)
 os.makedirs("outputs_isolation_forest/csv", exist_ok=True)
+os.makedirs("outputs_isolation_forest/reports", exist_ok=True)
 
 
 # =========================
@@ -36,9 +50,12 @@ COLOR_WARNING = "#F5A623"
 COLOR_CRITICAL = "#D0021B"
 
 
-# =========================
-# LOAD DATA
-# =========================
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 1 — CHARGEMENT DES DONNÉES (JOINTURE MULTI-KPI)
+# Jointure de 5 tables PostgreSQL (OEE, Defect Rate, Downtime, MTBF, MTTR)
+# sur la clé (production_day, station_id) pour obtenir une vue unique
+# multivariée par observation.
+# ══════════════════════════════════════════════════════════════════════════════
 
 print("→ Loading KPI data from PostgreSQL...")
 
@@ -86,9 +103,11 @@ print("Rows loaded:", len(df))
 print("Columns:", list(df.columns))
 
 
-# =========================
-# FEATURE SELECTION
-# =========================
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 2 — FEATURE SELECTION & NETTOYAGE
+# Sélection des 8 KPI numériques utilisés comme features du modèle,
+# typage et imputation des valeurs manquantes par la médiane (fallback 0).
+# ══════════════════════════════════════════════════════════════════════════════
 
 features = [
     "oee_pct",
@@ -117,9 +136,12 @@ df_model[features] = df_model[features].fillna(0)
 
 print("Rows after cleaning:", len(df_model))
 
-# =========================
-# NORMALIZATION
-# =========================
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 3 — NORMALISATION (STANDARDSCALER)
+# Mise à l'échelle des features (moyenne 0, écart-type 1) — indispensable
+# car Isolation Forest et PCA sont sensibles aux écarts d'échelle entre
+# KPI exprimés dans des unités différentes (%, minutes, heures).
+# ══════════════════════════════════════════════════════════════════════════════
 
 X = df_model[features]
 
@@ -127,9 +149,12 @@ scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
 
-# =========================
-# ISOLATION FOREST MODEL
-# =========================
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 4 — MODÈLE ISOLATION FOREST
+# Entraînement du modèle (200 arbres, contamination attendue 3%) et
+# génération de la prédiction (-1 = anomalie, 1 = normal) ainsi que
+# du score continu d'anomalie (plus bas = plus anormal).
+# ══════════════════════════════════════════════════════════════════════════════
 
 model = IsolationForest(
     n_estimators=200,
@@ -153,9 +178,12 @@ print("Total anomalies:", len(anomalies))
 print("Anomaly rate:", round(len(anomalies) / len(df_model) * 100, 2), "%")
 
 
-# =========================
-# EXPORT CSV
-# =========================
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 5 — EXPORT CSV
+# Export du jeu de données complet (avec score) et du sous-ensemble
+# des anomalies détectées.
+# ══════════════════════════════════════════════════════════════════════════════
 
 output_cols = [
     "production_day",
@@ -188,9 +216,16 @@ anomalies[output_cols].to_csv(
 print("✓ CSV files saved.")
 
 
-# =========================
-# GRAPH 1: ANOMALIES BY STATION
-# =========================
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 6 — VISUALISATION
+# Génération de 3 graphiques :
+#   [1] Nombre d'anomalies par station
+#   [2] Heatmap station × semaine
+#   [3] Projection PCA 2D (visualisation des anomalies multivariées)
+# ══════════════════════════════════════════════════════════════════════════════
+ 
+# ── Graphique 1 : anomalies par station ─────────────────────────────────────
 
 station_counts = anomalies["station_name"].value_counts().sort_values(ascending=False)
 
@@ -221,9 +256,7 @@ plt.savefig(
 plt.show()
 
 
-# =========================
-# GRAPH 2: HEATMAP STATION × WEEK
-# =========================
+# ── Graphique 2 : heatmap station × semaine ─────────────────────────────────
 
 df_model["week"] = df_model["production_day"].dt.to_period("W").astype(str)
 
@@ -261,10 +294,8 @@ plt.savefig(
 )
 plt.show()
 
-
-# =========================
-# GRAPH 3: PCA 2D VISUALIZATION
-# =========================
+ 
+# ── Graphique 3 : projection PCA 2D ──────────────────────────────────────────
 
 pca = PCA(n_components=2)
 X_pca = pca.fit_transform(X_scaled)
@@ -307,10 +338,11 @@ plt.savefig(
 plt.show()
 
 
-# =========================
-# PRINT TOP ANOMALIES
-# =========================
-
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 7 — TOP ANOMALIES (CONSOLE)
+# Affichage console des 20 observations les plus anormales (score le
+# plus bas), toutes features confondues.
+# ══════════════════════════════════════════════════════════════════════════════
 print("\n===== TOP 20 MOST ABNORMAL OBSERVATIONS =====")
 
 top_anomalies = anomalies.sort_values("anomaly_score").head(20)
@@ -335,10 +367,13 @@ print(
 
 engine.dispose()
 
-print("\n✅ Isolation Forest completed successfully.")
 
-# Ajouter à la fin de chaque script Python, exemple pour isolation_forest
-from sqlalchemy import text
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 8 — EXPORT POSTGRESQL
+# Chargement du résultat complet (avec score et flag anomalie) dans la
+# table iforest_results, pour exploitation directe dans Grafana.
+# ══════════════════════════════════════════════════════════════════════════════
+
 
 df_model[output_cols].to_sql(
     "iforest_results",
@@ -348,12 +383,12 @@ df_model[output_cols].to_sql(
 )
 print("✓ iforest_results chargé en base")
 
-# ═════════════════════════════════════════════════════════════════════════════
-# RAPPORT TEXTE — Isolation Forest
-# ═════════════════════════════════════════════════════════════════════════════
-
-import os
-os.makedirs("outputs_isolation_forest/reports", exist_ok=True)
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 9 — RAPPORT TEXTE
+# Génération d'un rapport texte consolidé (iforest_report.txt) :
+# paramètres du modèle, résumé par station, top 20 anomalies, profil
+# moyen anomalies vs normal par feature, et distribution mensuelle.
+# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 print("\n→ Génération rapport texte (Isolation Forest)...")
 
@@ -437,4 +472,9 @@ with open(report_path, "w", encoding="utf-8") as f:
     f.write("\n" + "=" * 65 + "\n")
 
 print(f"  ✓ {report_path}")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 10 — FIN D'EXÉCUTION
+# ══════════════════════════════════════════════════════════════════════════════
+
 print("\n✅ Isolation Forest completed successfully.")

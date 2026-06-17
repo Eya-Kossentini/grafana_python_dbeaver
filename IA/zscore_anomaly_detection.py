@@ -1,7 +1,12 @@
 """
 Graphiques corrigés — Détection d'anomalies KPI industriels
+==============================================================
+Objectif : Appliquer la méthode Z-Score (écart à la moyenne en nombre
+           d'écarts-types) sur les 3 KPI principaux : OEE, Downtime,
+           Defect Rate — avec seuils warning (|z|>2) et critical (|z|>3).
 """
 
+import os
 import psycopg2
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -26,9 +31,12 @@ COLOR_WARNING = "#F5A623"
 COLOR_CRITICAL= "#D0021B"
 COLOR_MA      = "#7ED321"
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Fonction utilitaire Z-Score (utilisée pour defect)
-# ─────────────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 0 — FONCTION UTILITAIRE Z-SCORE
+# Calcul générique du z-score et de la sévérité (normal/warning/critical)
+# pour un groupe donné. Utilisée comme référence pour la logique appliquée
+# (en boucle) sur chaque KPI ci-dessous.
+# ══════════════════════════════════════════════════════════════════════════════
 
 def add_zscore_severity(group, col, direction="low"):
     group = group.copy()
@@ -45,7 +53,10 @@ def add_zscore_severity(group, col, direction="low"):
     return group
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 1.  OEE — un sous-graphe PAR STATION
+# SECTION 1 — KPI OEE (Z-SCORE PAR STATION)
+# Calcul du z-score par station (direction=low : on cherche les chutes
+# d'OEE), génération du graphique multi-stations (bande ±2σ + anomalies)
+# et de la heatmap hebdomadaire des anomalies.
 # ═════════════════════════════════════════════════════════════════════════════
 
 print("→ Génération des graphiques OEE...")
@@ -144,7 +155,10 @@ plt.show()
 print("  ✓ oee_heatmap_anomalies.png sauvegardé")
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 2.  DOWNTIME
+# SECTION 2 — KPI DOWNTIME (Z-SCORE GLOBAL)
+# Calcul du z-score sur l'ensemble des stations (direction=high : on
+# cherche les arrêts anormalement longs). Génère la série temporelle
+# avec seuil critique et la répartition des anomalies par type de panne.
 # ═════════════════════════════════════════════════════════════════════════════
 
 print("→ Génération des graphiques Downtime...")
@@ -210,7 +224,10 @@ plt.show()
 print("  ✓ downtime_type_distribution.png sauvegardé")
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 3.  DEFECT RATE
+# SECTION 3 — KPI DEFECT RATE (Z-SCORE GLOBAL + PAR STATION)
+# Deux niveaux d'analyse : vue agrégée journalière (toutes stations,
+# direction=high) avec zones warning/critique, puis détail par station
+# pour identifier le top 10 des stations les plus impactées.
 # ═════════════════════════════════════════════════════════════════════════════
 
 print("→ Génération des graphiques Defect Rate...")
@@ -329,10 +346,12 @@ engine.dispose()
 print("\n✅ Tous les graphiques générés et sauvegardés.")
 
 # ═════════════════════════════════════════════════════════════════════════════
-# EXPORT CSV + PostgreSQL — Z-Score Results
+# SECTION 4 — EXPORT CSV + POSTGRESQL (Z-SCORE RESULTS)
+# Export de chaque KPI (OEE, Downtime, Defect Rate) en CSV (complet +
+# anomalies), puis consolidation dans la table PostgreSQL unifiée
+# "zscore_results" (format long, une ligne par observation/KPI).
 # ═════════════════════════════════════════════════════════════════════════════
 
-import os
 os.makedirs("outputs_zscore_anomaly_detection/csv", exist_ok=True)
 
 print("\n→ Export CSV et PostgreSQL (Z-Score)...")
@@ -428,10 +447,11 @@ engine2.dispose()
 print("\n✅ Exports Z-Score terminés.")
 
 # ═════════════════════════════════════════════════════════════════════════════
-# RAPPORT TEXTE — Z-Score
+# SECTION 5 — RAPPORT TEXTE
+# Génération d'un rapport texte consolidé (zscore_report.txt) résumant
+# moyenne, écart-type, seuils et détail des anomalies pour les 3 KPI.
 # ═════════════════════════════════════════════════════════════════════════════
 
-import os
 os.makedirs("outputs_zscore_anomaly_detection/reports", exist_ok=True)
 
 print("\n→ Génération rapport texte (Z-Score)...")
