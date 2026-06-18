@@ -1,6 +1,6 @@
 """
-Prévision court terme — Defect Rate J+1
-=========================================
+Prévision court terme — Defect Rate J+1  (VERSION CORRIGÉE)
+=============================================================
 Objectif : Prévoir le taux de rebuts du lendemain (J+1) par station
            afin d'anticiper les dérives qualité.
 
@@ -8,12 +8,31 @@ Méthodes :
   1. Moving Average Forecast         → moyenne des 7 derniers jours
   2. Exponential Smoothing (Holt)    → modèle pondéré, plus réactif
 
+CORRECTIF APPLIQUÉ (voir section "FIX" plus bas) :
+  L'ancienne fonction forecast_exponential_smoothing utilisait
+  Holt(...).fittedvalues, qui sont des valeurs ajustées IN-SAMPLE
+  (le modèle "voit" toute la série pour s'optimiser), alors que
+  forecast_moving_average est un vrai forecast OUT-OF-SAMPLE
+  (chaque point ne voit que le passé via shift(1).rolling()).
+  Cela rendait la comparaison MA7 vs ES Holt invalide : ES Holt
+  gagnait quasi systématiquement sur les métriques globales (MAE/MAPE)
+  car il "trichait", mais perdait la moitié du temps sur la vraie
+  prévision J+1 (qui elle, dans predict_next_day, était déjà correcte).
+  Cela expliquait aussi le n=125 (MA7) vs n=127 (ES Holt) : le fit
+  in-sample ne perdait pas les jours d'initialisation comme le rolling.
+
+  → Remplacé par un WALK-FORWARD FORECAST : à chaque jour t, on refit
+    Holt() uniquement sur les données disponibles jusqu'à t-1, puis on
+    prédit t. C'est plus lent (un fit par jour) mais directement
+    comparable à MA7, point par point, sur exactement la même période.
+
 Source : PostgreSQL  (SQLAlchemy — élimine le UserWarning psycopg2)
 
 Usage :
-  python forecasting_defect_rate.py
-  python forecasting_defect_rate.py --station 3
-  python forecasting_defect_rate.py --window 5
+  python forecasting_defect_rate_FIXED.py
+  python forecasting_defect_rate_FIXED.py --station 3
+  python forecasting_defect_rate_FIXED.py --window 5
+  python forecasting_defect_rate_FIXED.py --csv chemin/vers/export.csv
 """
 
 import argparse
@@ -25,7 +44,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-from sqlalchemy import create_engine
 
 warnings.filterwarnings("ignore")
 
@@ -47,9 +65,7 @@ C_GRID    = "#E8E8E8"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 1. CHARGEMENT DEPUIS POSTGRESQL
-# Connexion via SQLAlchemy, lecture de la table defect_rate_kpi,
-# nettoyage et typage des colonnes.
+# 1. CHARGEMENT DEPUIS POSTGRESQL (ou CSV en fallback)
 # ══════════════════════════════════════════════════════════════════════════════
 
 def load_from_postgres(station_id: int = None) -> pd.DataFrame:
@@ -62,6 +78,8 @@ def load_from_postgres(station_id: int = None) -> pd.DataFrame:
     Returns:
         DataFrame avec au minimum : production_day, station_id, defect_rate_pct
     """
+    from sqlalchemy import create_engine
+
     engine = create_engine(
         "postgresql+psycopg2://postgres:admin123@localhost:5435/postgres"
     )
@@ -72,6 +90,17 @@ def load_from_postgres(station_id: int = None) -> pd.DataFrame:
     df = pd.read_sql(query, engine)
     engine.dispose()
 
+    return _clean_df(df, station_id)
+
+
+def load_from_csv(path: str, station_id: int = None) -> pd.DataFrame:
+    """Fallback : charge les mêmes données depuis un CSV exporté de la DB."""
+    print(f"\n  → Chargement CSV : {path}")
+    df = pd.read_csv(path)
+    return _clean_df(df, station_id)
+
+
+def _clean_df(df: pd.DataFrame, station_id: int = None) -> pd.DataFrame:
     df.columns = df.columns.str.strip()
     df["production_day"]   = pd.to_datetime(df["production_day"])
     df["defect_rate_pct"]  = pd.to_numeric(df["defect_rate_pct"], errors="coerce")
@@ -92,9 +121,7 @@ def load_from_postgres(station_id: int = None) -> pd.DataFrame:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 2. FEATURE ENGINEERING
-# Construction des variables explicatives par station :
-# moyennes mobiles, volatilité, tendance linéaire, ratios opérationnels.
+# 2. FEATURE ENGINEERING  (inchangé)
 # ══════════════════════════════════════════════════════════════════════════════
 
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -147,7 +174,6 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
 
     result = pd.concat(parts).reset_index(drop=True)
 
-    # Garantir station_name même si absent de la DB
     if "station_name" not in result.columns:
         result["station_name"] = "Station " + result["station_id"].astype(str)
 
@@ -158,63 +184,89 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 3. MODÈLES DE PRÉVISION
-# Implémentation de deux approches de forecasting :
-#   · Moving Average (MA)  : moyenne glissante sur fenêtre configurable
-#   · Exponential Smoothing (Holt) : lissage avec composante tendance
-# Inclut évaluation (MAE, RMSE, MAPE) et prédiction J+1.
 # ══════════════════════════════════════════════════════════════════════════════
 
 def forecast_moving_average(series: pd.Series, window: int = 7) -> pd.Series:
     """
-    Moving Average Forecast
+    Moving Average Forecast (out-of-sample, inchangé)
         Ŷ_{t+1} = (1/n) × Σ Y_{t-n+1..t}
     """
     return series.shift(1).rolling(window=window, min_periods=3).mean()
 
 
-def forecast_exponential_smoothing(series: pd.Series, use_holt: bool = True) -> pd.Series:
+# ─────────────────────────────────────────────────────────────────────────────
+# FIX : walk-forward forecast pour Holt, comparable point par point à MA7.
+# Avant : Holt(...).fittedvalues → in-sample, le modèle voit déjà Y_t pour
+#         calculer son propre fit, biais optimiste + n différent de MA7.
+# Après : à chaque t, on fit Holt() UNIQUEMENT sur Y_1..Y_{t-1}, puis on
+#         prédit Y_t avec fit.forecast(1). Vraie prévision out-of-sample.
+# ─────────────────────────────────────────────────────────────────────────────
+def forecast_exponential_smoothing(series: pd.Series, use_holt: bool = True,
+                                    min_train: int = 10, refit_every: int = 1) -> pd.Series:
     """
-    Exponential Smoothing Forecast
+    Exponential Smoothing Forecast — walk-forward (out-of-sample).
 
     SES  : Ŷ_{t+1} = α·Y_t + (1-α)·Ŷ_t
     Holt : ajoute une composante tendance β
            L_t = α·Y_t + (1-α)·(L_{t-1} + T_{t-1})
            T_t = β·(L_t - L_{t-1}) + (1-β)·T_{t-1}
            Ŷ_{t+h} = L_t + h·T_t
+
+    Args:
+        series      : série indexée (defect_rate_pct), peut contenir des NaN
+        use_holt    : True = Holt (tendance), False = SES simple
+        min_train   : nb minimum d'observations avant de produire un forecast
+        refit_every : refit le modèle tous les N pas (1 = à chaque pas, le
+                      plus rigoureux ; >1 accélère le calcul si besoin)
+
+    Returns:
+        pd.Series alignée sur l'index d'entrée, NaN avant min_train.
     """
     try:
         from statsmodels.tsa.holtwinters import SimpleExpSmoothing, Holt
     except ImportError:
-        # fallback SES manuel α=0.3
+        # Fallback SES manuel α=0.3, déjà out-of-sample par construction
         a         = 0.3
         forecasts = [np.nan] * len(series)
-        valid     = series.dropna()
-        if len(valid) < 3:
-            return pd.Series(np.nan, index=series.index)
-        level = float(valid.iloc[0])
+        level     = None
         for i in range(len(series)):
-            forecasts[i] = level
-            if not np.isnan(series.iloc[i]):
-                level = a * float(series.iloc[i]) + (1 - a) * level
+            if level is not None:
+                forecasts[i] = level
+            v = series.iloc[i]
+            if not np.isnan(v):
+                level = float(v) if level is None else a * float(v) + (1 - a) * level
         return pd.Series(forecasts, index=series.index)
 
-    valid = series.dropna()
-    if len(valid) < 5:
-        return pd.Series(np.nan, index=series.index)
-
+    n = len(series)
     forecasts = pd.Series(np.nan, index=series.index)
-    model     = Holt(valid, initialization_method="estimated") if use_holt \
-                else SimpleExpSmoothing(valid, initialization_method="estimated")
+    values = series.values.astype(float)
 
-    try:
-        fit    = model.fit(optimized=True, remove_bias=True)
-        fitted = fit.fittedvalues
-        for idx in fitted.index:
-            if idx in forecasts.index:
-                forecasts[idx] = fitted[idx]
-        forecasts = forecasts.shift(1)
-    except Exception as e:
-        print(f"  ⚠ ES fitting error : {e}")
+    last_model_fit = None
+    steps_since_fit = 0
+
+    for t in range(n):
+        train = values[:t]  # tout ce qui précède t, jamais Y_t lui-même
+        train_valid = train[~np.isnan(train)]
+
+        if len(train_valid) < min_train:
+            continue
+
+        need_refit = (last_model_fit is None) or (steps_since_fit >= refit_every)
+
+        try:
+            if need_refit:
+                train_series = pd.Series(train_valid)
+                model = Holt(train_series, initialization_method="estimated") if use_holt \
+                        else SimpleExpSmoothing(train_series, initialization_method="estimated")
+                last_model_fit = model.fit(optimized=True, remove_bias=True)
+                steps_since_fit = 0
+            pred = float(last_model_fit.forecast(1).iloc[0])
+            forecasts.iloc[t] = pred
+            steps_since_fit += 1
+        except Exception:
+            # si le fit échoue pour ce pas, on laisse NaN et on retentera au pas suivant
+            last_model_fit = None
+            continue
 
     return forecasts
 
@@ -235,7 +287,7 @@ def evaluate_model(actual: pd.Series, predicted: pd.Series, model_name: str) -> 
 
 
 def predict_next_day(series: pd.Series, window: int = 7) -> dict:
-    """Prédit J+1 en utilisant toute la série disponible."""
+    """Prédit J+1 en utilisant toute la série disponible (inchangé — déjà correct)."""
     valid = series.dropna()
     if len(valid) < 3:
         return {"ma": np.nan, "es": np.nan, "date": None}
@@ -261,12 +313,7 @@ def predict_next_day(series: pd.Series, window: int = 7) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 4. VISUALISATION
-# Génération de 4 graphiques :
-#   [1] Features engineered (station de référence)
-#   [2] Prévisions MA vs ES par station + intervalles de confiance + résidus
-#   [3] Comparaison des métriques MAE / MAPE par station
-#   [4] Tableau récapitulatif des prévisions J+1
+# 4. VISUALISATION  (inchangé, sauf nom de fichier de sortie)
 # ══════════════════════════════════════════════════════════════════════════════
 
 def plot_forecast_per_station(df_feat: pd.DataFrame, window: int = 7):
@@ -281,7 +328,7 @@ def plot_forecast_per_station(df_feat: pd.DataFrame, window: int = 7):
         axes = [axes]
 
     fig.suptitle(
-        f"Prévision J+1 — Defect Rate  (MA{window}j · Exponential Smoothing Holt)",
+        f"Prévision J+1 — Defect Rate  (MA{window}j · Exponential Smoothing Holt, walk-forward)",
         fontsize=15, fontweight="bold", y=1.001
     )
 
@@ -299,7 +346,6 @@ def plot_forecast_per_station(df_feat: pd.DataFrame, window: int = 7):
         grp["ma_upper"]  = grp["ma_forecast"] + 1.5 * rolling_std
         grp["ma_lower"]  = grp["ma_forecast"] - 1.5 * rolling_std
 
-        # Récupérer le station_name EN PREMIER
         station_name = df_feat[df_feat["station_id"] == sid]["station_name"].iloc[0] \
                        if "station_name" in df_feat.columns else f"Station {sid}"
 
@@ -319,7 +365,6 @@ def plot_forecast_per_station(df_feat: pd.DataFrame, window: int = 7):
             "last_actual":  round(float(grp[col].iloc[-1]), 3),
         })
 
-        # ── Série + prévisions ────────────────────────────────────────────────
         ax_main.plot(grp.index, grp[col], color=C_ACTUAL, lw=1.3, alpha=0.8, label="Réel")
         ax_main.plot(grp.index, grp["ma_forecast"], color=C_MA, lw=1.8,
                      linestyle="--", label=f"MA{window} MAE={m_ma['MAE']:.3f}")
@@ -337,7 +382,8 @@ def plot_forecast_per_station(df_feat: pd.DataFrame, window: int = 7):
 
         ax_main.set_title(
             f"{station_name}  |  MAE MA={m_ma['MAE']:.3f}  MAE ES={m_es['MAE']:.3f}  "
-            f"MAPE MA={m_ma['MAPE']:.1f}%  MAPE ES={m_es['MAPE']:.1f}%",
+            f"MAPE MA={m_ma['MAPE']:.1f}%  MAPE ES={m_es['MAPE']:.1f}%  "
+            f"(n MA={m_ma['n']}, n ES={m_es['n']})",
             fontsize=10, loc="left"
         )
         ax_main.set_ylabel("Defect Rate (%)")
@@ -347,7 +393,6 @@ def plot_forecast_per_station(df_feat: pd.DataFrame, window: int = 7):
         ax_main.legend(fontsize=8, loc="upper left", ncol=3)
         ax_main.grid(axis="y", alpha=0.3, color=C_GRID)
 
-        # ── Résidus ───────────────────────────────────────────────────────────
         res_ma = grp[col] - grp["ma_forecast"]
         res_es = grp[col] - grp["es_forecast"]
         ax_err.bar(grp.index, res_ma, color=C_MA, alpha=0.5, width=0.8, label=f"MA{window}")
@@ -414,6 +459,11 @@ def plot_features(df_feat: pd.DataFrame) -> None:
 
 
 def plot_metrics_comparison(metrics: list) -> None:
+    # FIX (bug d'affichage) : on repart d'une figure neuve et on ferme les
+    # anciennes pour éviter tout chevauchement de labels entre exécutions
+    # (c'est ce qui causait le double-label visible sur SF-SPI-L01-01 / MAPE).
+    plt.close("all")
+
     df_m     = pd.DataFrame(metrics)
     df_m     = df_m[df_m["n"] > 0]
     stations = sorted(df_m["station_id"].unique())
@@ -434,14 +484,13 @@ def plot_metrics_comparison(metrics: list) -> None:
                 ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.001,
                         f"{bar.get_height():.3f}", ha="center", va="bottom", fontsize=8)
         ax.set_xticks(x)
-        # Récupérer le nom depuis df_m si disponible
         labels_x = []
         for s in stations:
             name_rows = df_m[df_m["station_id"] == s]["station_name"]
             labels_x.append(name_rows.iloc[0] if len(name_rows) > 0 and "station_name" in df_m.columns
                              else f"Station {s}")
         ax.set_xticklabels(labels_x, rotation=25, ha="right")
-        ax.set_title(f"{ylabel} — MA7 vs ES Holt", fontsize=12, fontweight="bold")
+        ax.set_title(f"{ylabel} — MA7 vs ES Holt (walk-forward)", fontsize=12, fontweight="bold")
         ax.set_ylabel(ylabel)
         ax.legend()
         ax.grid(axis="y", alpha=0.3, color=C_GRID)
@@ -453,8 +502,9 @@ def plot_metrics_comparison(metrics: list) -> None:
 
 
 def plot_next_day_summary(next_day_preds: list) -> None:
+    plt.close("all")
     df_n = pd.DataFrame(next_day_preds)
-    fig, ax = plt.subplots(figsize=(13, 5))  # au lieu de (12, n*1.2+2)
+    fig, ax = plt.subplots(figsize=(13, 5))
     ax.axis("off")
 
     col_labels  = ["Station", "Date J+1", "Réel J (%)", "Prévision MA7 (%)", "Prévision ES (%)", "Écart MA vs Réel"]
@@ -463,8 +513,8 @@ def plot_next_day_summary(next_day_preds: list) -> None:
     for _, row in df_n.iterrows():
         ecart     = abs(row["ma_pred"] - row["last_actual"])
         ecart_pct = ecart / row["last_actual"] * 100 if row["last_actual"] > 0 else 0
-        # Afficher station_name si disponible, sinon Station {id}
-        station_label = str(row["station_name"]) if "station_name" in row and pd.notna(row["station_name"])                         else f"Station {int(row['station_id'])}"
+        station_label = str(row["station_name"]) if "station_name" in row and pd.notna(row["station_name"]) \
+                         else f"Station {int(row['station_id'])}"
         cell_text.append([
             station_label,
             str(row["date_J1"]),
@@ -495,13 +545,11 @@ def plot_next_day_summary(next_day_preds: list) -> None:
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 5. RAPPORT + EXPORT CSV
-# Affichage formaté des métriques et prévisions J+1 dans le terminal.
-# Export des résultats complets en trois fichiers CSV.
 # ══════════════════════════════════════════════════════════════════════════════
 
 def print_forecast_report(metrics: list, next_day_preds: list) -> None:
     print("\n" + "=" * 65)
-    print("   RAPPORT PRÉVISION DEFECT RATE J+1")
+    print("   RAPPORT PRÉVISION DEFECT RATE J+1  (walk-forward, corrigé)")
     print("=" * 65)
     df_m = pd.DataFrame(metrics)
     for sid in sorted(df_m["station_id"].unique()):
@@ -539,20 +587,23 @@ def export_results(df_feat: pd.DataFrame, next_day_preds: list, metrics: list) -
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 6. MAIN
-# Parsing des arguments CLI, orchestration du pipeline complet :
-# chargement → features → visualisation → rapport → export.
 # ══════════════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Prévision J+1 Defect Rate — PostgreSQL")
+    parser = argparse.ArgumentParser(description="Prévision J+1 Defect Rate — PostgreSQL ou CSV")
     parser.add_argument("--station", type=int, default=None,
                         help="Filtrer par station_id (défaut : toutes)")
     parser.add_argument("--window",  type=int, default=7,
                         help="Fenêtre MA en jours (défaut : 7)")
+    parser.add_argument("--csv", type=str, default=None,
+                        help="Chemin vers un CSV exporté (fallback si pas de PostgreSQL)")
     args = parser.parse_args()
 
     # ── Chargement ────────────────────────────────────────────────────────────
-    df_raw = load_from_postgres(station_id=args.station)
+    if args.csv:
+        df_raw = load_from_csv(args.csv, station_id=args.station)
+    else:
+        df_raw = load_from_postgres(station_id=args.station)
     print(f"\n  {len(df_raw)} observations · {df_raw['station_id'].nunique()} station(s)")
 
     # ── Feature engineering ───────────────────────────────────────────────────
@@ -564,7 +615,7 @@ if __name__ == "__main__":
     print("  [1/4] Features...")
     plot_features(df_feat)
 
-    print("  [2/4] Prévisions par station...")
+    print("  [2/4] Prévisions par station (walk-forward, peut prendre 1-2 min)...")
     metrics, next_day_preds = plot_forecast_per_station(df_feat, window=args.window)
 
     print("  [3/4] Comparaison des métriques...")
