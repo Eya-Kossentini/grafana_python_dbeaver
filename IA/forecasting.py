@@ -576,13 +576,34 @@ def export_results(df_feat: pd.DataFrame, next_day_preds: list, metrics: list) -
         g["es_error"]    = g["defect_rate_pct"] - g["es_forecast"]
         parts.append(g.reset_index())
 
-    pd.concat(parts).to_csv(
+    df_full = pd.concat(parts)
+    df_full.to_csv(
         "outputs_forecasting_prevision/csv/forecast_defect_rate_full.csv", index=False)
     pd.DataFrame(next_day_preds).to_csv(
         "outputs_forecasting_prevision/csv/forecast_next_day.csv", index=False)
     pd.DataFrame(metrics).to_csv(
         "outputs_forecasting_prevision/csv/forecast_metrics.csv", index=False)
     print("  ✓ CSV exportés dans outputs_forecasting_prevision/csv/")
+
+    # ─────────────────────────────────────────────────────────────────────
+    # Réécriture des tables PostgreSQL lues par Grafana.
+    # IMPORTANT : sans cet appel, forecast_results et forecast_metrics
+    # restent figées sur l'ancien export (pré-fix walk-forward) — c'est
+    # exactement ce qui causait la ligne ES plate dans les dashboards.
+    # ─────────────────────────────────────────────────────────────────────
+    try:
+        from sqlalchemy import create_engine
+        engine = create_engine(
+            "postgresql+psycopg2://postgres:admin123@localhost:5435/postgres"
+        )
+        df_full.to_sql("forecast_results", engine, if_exists="replace", index=False)
+        pd.DataFrame(metrics).to_sql("forecast_metrics", engine, if_exists="replace", index=False)
+        pd.DataFrame(next_day_preds).to_sql("forecast_next_day", engine, if_exists="replace", index=False)
+        engine.dispose()
+        print("  ✓ Tables PostgreSQL mises à jour : forecast_results, forecast_metrics, forecast_next_day")
+    except Exception as e:
+        print(f"  ⚠ Échec de l'écriture PostgreSQL : {e}")
+        print("  → Les CSV restent disponibles pour un import manuel (\\copy ou outil GUI).")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
